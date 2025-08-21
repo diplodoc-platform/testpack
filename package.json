@@ -1,0 +1,15 @@
+{
+  "name": "@diplodoc/testpack",
+  "version": "1.0.0",
+  "description": "System tests for Diplodoc platform",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "lint update && lint",
+    "lint:fix": "lint update && lint fix",
+    "pre-commit": "lint update && lint-staged",
+    "prepare": "husky"
+  },
+  "author": "",
+  "license": "ISC"
+}
