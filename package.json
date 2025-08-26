@@ -22,6 +22,9 @@
   },
   "author": "",
   "license": "ISC",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "@playwright/test": "^1.49.1"
   },
