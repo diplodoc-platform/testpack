@@ -33,7 +33,7 @@ export default (additionals: Partial<Omit<Config, 'reporter'>> & Reporters) =>
         },
         reporter: (
             [
-                ['html', {outputFolder: '.playwright/html'}],
+                ['html', {outputFolder: '.playwright/html', open: 'never'}],
                 ['json', {outputFile: '.playwright/json/results.json'}],
             ] as ReporterDescription[]
         ).concat(additionals.reporter || []),

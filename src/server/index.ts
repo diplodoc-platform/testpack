@@ -9,12 +9,16 @@ app.get('/', (_req, res) => {
 });
 
 app.use((req, _res, next) => {
-    const tail = req.url.split('/').pop() as string;
+    const url = new URL('http://localhost:3000' + req.url);
+
+    const tail = url.pathname.split('/').pop() as string;
     if (tail === '') {
-        req.url += 'index.html';
+        url.pathname += 'index.html';
     } else if (!tail.match(/\..+?$/)) {
-        req.url += '.html';
+        url.pathname += '.html';
     }
+
+    req.url = url.toString();
 
     next();
 });

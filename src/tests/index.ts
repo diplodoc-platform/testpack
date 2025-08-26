@@ -1,1 +1,2 @@
 import './terms';
+import './tabs';

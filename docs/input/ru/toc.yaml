@@ -29,5 +29,7 @@ navigation:
 items:
   - name: Syntax
     items:
+      - name: Tabs
+        href: syntax/tabs.md
       - name: Terms
         href: syntax/terms.md

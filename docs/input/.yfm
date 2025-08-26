@@ -1,2 +1,3 @@
 allowHtml: true
 langs: ['ru', 'en']
+search: true
