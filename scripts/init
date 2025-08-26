@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+  CACHE="~/.cache/ms-playwright"
+elif [[ "$OSTYPE" == "cygwin" ]]; then
+  CACHE="~/.cache/ms-playwright"
+elif [[ "$OSTYPE" == "freebsd"* ]]; then
+  CACHE="~/.cache/ms-playwright"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+  CACHE="~/Library/Caches/ms-playwright"
+else
+  CACHE="%USERPROFILE%\AppData\Local\ms-playwright"
+fi
+
+if [[ -z "$(ls $CACHE 2>&1  | grep chromium)" ]]; then
+  npx playwright install --with-deps chromium "$@"
+fi
+
+if [[ -z $(node -pe 'require.resolve("@diplodoc/cli")') ]]; then
+  npm i @diplodoc/cli@latest --no-save
+fi

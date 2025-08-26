@@ -1,0 +1,33 @@
+navigation:
+  logo:
+    url: '/'
+    dark:
+      icon: 'assets/diplodoc-dark.jpg'
+      text: 'Diplodoc Tests'
+    light:
+      icon: 'assets/diplodoc-light.jpg'
+      text: 'Diplodoc Tests'
+  header:
+    leftItems:
+      - text: 'Relative link'
+        type: 'link'
+        url: 'about'
+      - text: 'Absolute link'
+        type: 'link'
+        url: '/about'
+      - text: 'Dropdown'
+        type: 'dropdown'
+        items:
+          - text: 'Relative link'
+            type: 'link'
+            url: 'about'
+          - text: 'Absolute link'
+            type: 'link'
+            url: '/about'
+    rightItems:
+      - type: controls
+items:
+  - name: Syntax
+    items:
+      - name: Terms
+        href: syntax/terms.md

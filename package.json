@@ -3,13 +3,36 @@
   "version": "1.0.0",
   "description": "System tests for Diplodoc platform",
   "main": "index.js",
+  "exports": {
+    "./*": "./build/*/index.js"
+  },
+  "fies": [
+    "build",
+    "docs"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "./esbuild/build.mjs",
+    "start": "PROJECT=docs/output PORT=3000 node build/server",
+    "test": "scripts/init && npx playwright test",
+    "docs": "docs build -i docs/input -o docs/output",
     "lint": "lint update && lint",
     "lint:fix": "lint update && lint fix",
     "pre-commit": "lint update && lint-staged",
     "prepare": "husky"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@playwright/test": "^1.49.1"
+  },
+  "devDependencies": {
+    "@types/node": "^18.19.59",
+    "esbuild": "^0.19.12",
+    "express": "^4.21.2",
+    "glob": "^10.4.5",
+    "typescript": "^5.6.3"
+  },
+  "peerDependencies": {
+    "@diplodoc/cli": "*"
+  }
 }

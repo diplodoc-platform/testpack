@@ -3,6 +3,7 @@
 .history
 .env
 .DS_Store
+.playwright
 node_modules
 /lib
 /dist
@@ -10,3 +11,5 @@ node_modules
 /cache
 /coverage
 /external
+
+/docs

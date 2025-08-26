@@ -3,6 +3,8 @@
 .history
 .env
 .DS_Store
+.playwright
+.eslintrc.js
 node_modules
 /lib
 /dist
@@ -10,3 +12,5 @@ node_modules
 /cache
 /coverage
 /external
+
+/docs
