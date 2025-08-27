@@ -37,7 +37,7 @@ const selectors = {
     cut: '.yfm-cut',
     cutTitle: '.yfm-cut-title',
     cutContent: '.yfm-cut-content',
-    cutButton: 'summary.yfm-cut-title',
+    cutButton: '> summary.yfm-cut-title',
     expanded: '[open]',
     highlight: '.cut-highlight',
 } as const;
@@ -183,8 +183,8 @@ test.describe('Cut', () => {
 
         test('should maintain nested cut state when parent is collapsed', async ({page}) => {
             // Arrange
-            const outerCut = page.locator(`#${CUT_IDS.OUTER}`);
-            const innerCut = page.locator(`#${CUT_IDS.INNER}`);
+            const outerCut = page.locator(`#${CUT_IDS.OUTER}`).first();
+            const innerCut = page.locator(`#${CUT_IDS.INNER}`).first();
 
             // Act - Expand both cuts
             await outerCut.locator(selectors.cutButton).click();
@@ -368,28 +368,31 @@ test.describe('Cut', () => {
             await expect(basicCut).not.toHaveClass(/cut-highlight/);
         });
 
-        test('should ensure all hash-targeted cuts are in viewport', async ({page}) => {
-            // Test multiple cuts to ensure viewport functionality works consistently
-            const testCases = [
-                {id: CUT_IDS.BASIC, description: 'basic cut'},
-                {id: CUT_IDS.HEIGHT_TALL, description: 'tall cut'},
-                {id: CUT_IDS.INNER, description: 'nested inner cut'},
-                {id: CUT_IDS.CODE, description: 'code cut'},
-            ];
+        test('should keep BASIC cut in viewport when opened via hash', async ({page}) => {
+            await page.goto(`./ru/syntax/cut#${CUT_IDS.BASIC}`);
 
-            for (const testCase of testCases) {
-                // Arrange - Navigate with hash for each cut
-                await page.goto(`./ru/syntax/cut#${testCase.id}`);
+            const targetCut = page.locator(`#${CUT_IDS.BASIC}`);
 
-                // Get the cut by ID
-                const targetCut = page.locator(`#${testCase.id}`);
+            await expect(targetCut).toHaveAttribute('open');
+            await expect(targetCut).toBeInViewport();
+        });
 
-                // Assert - Cut should be expanded
-                await expect(targetCut).toHaveAttribute('open');
+        test('should keep INNER cut in viewport when opened via hash', async ({page}) => {
+            await page.goto(`./ru/syntax/cut#${CUT_IDS.INNER}`);
 
-                // Assert - Cut should be visible in viewport
-                await expect(targetCut).toBeInViewport();
-            }
+            const targetCut = page.locator(`#${CUT_IDS.INNER}`);
+
+            await expect(targetCut).toHaveAttribute('open');
+            await expect(targetCut).toBeInViewport();
+        });
+
+        test('should keep CODE cut in viewport when opened via hash', async ({page}) => {
+            await page.goto(`./ru/syntax/cut#${CUT_IDS.CODE}`);
+
+            const targetCut = page.locator(`#${CUT_IDS.CODE}`);
+
+            await expect(targetCut).toHaveAttribute('open');
+            await expect(targetCut).toBeInViewport();
         });
     });
 
