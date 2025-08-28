@@ -23,6 +23,8 @@ Keep edits minimal, consistent in style, and aligned with the existing anchors.
 8. Avoid redundant toBeTruthy() before toEqual()
 9. Keep tests independent and deterministic
 10. Name tests clearly; prefer user-centered language
+11. Use helper functions for element groups (return arrays for destructuring)
+12. Prefer array destructuring over object destructuring for related elements
 
 <a id="quick-links"></a>
 
@@ -36,6 +38,7 @@ Keep edits minimal, consistent in style, and aligned with the existing anchors.
 - [6. Decision tree](#decision-tree)
 - [7. Playwright TL;DR](#playwright-tldr)
 - [8. General Principles](#general-principles)
+- [9. Helper Functions for Element Groups](#helper-functions)
 
 <a id="templates"></a>
 
@@ -71,12 +74,27 @@ test('navigates by hash and scrolls target into viewport', async ({page}) => {
   await page.goto(`./ru/syntax/cut#${CUT_IDS.BASIC}`);
 
   // Act
-  const target = page.locator(`#${CUT_IDS.BASIC}`);
+  const [details, summary, content] = getCutElements(page, CUT_IDS.BASIC);
 
   // Assert
-  await expect(target).toHaveAttribute('open');
-  await expect(target).toBeInViewport();
+  await expect(details).toHaveAttribute('open');
+  await expect(details).toBeInViewport();
 });
+```
+
+### Helper function template
+
+```typescript
+// Helper function to get related elements
+function getCutElements(page: any, cutId: string) {
+  const summary = page.locator(`#${cutId}`);
+  const details = summary.locator('..'); // Parent details element
+  const content = details.locator(selectors.cutContent);
+  return [details, summary, content];
+}
+
+// Usage in tests
+const [details, summary, content] = getCutElements(page, CUT_IDS.BASIC);
 ```
 
 <a id="cheat-sheets"></a>
@@ -97,18 +115,22 @@ test('navigates by hash and scrolls target into viewport', async ({page}) => {
 - Assert states (toBeVisible, toHaveAttribute), avoid waitForTimeout
 - Use toBeInViewport() for scroll expectations
 - Group related tests with test.describe()
+- Use helper functions for element groups (return arrays for destructuring)
+- Prefer array destructuring over object destructuring for related elements
 
 <a id="dodont"></a>
 
 ## Do/Don’t
 
-| Do                              | Don’t                                         |
-| ------------------------------- | --------------------------------------------- |
-| Assert full object with toEqual | Check only presence with toBeTruthy + toEqual |
-| Use IDs for selectors           | Use positional selectors (.first, .nth)       |
-| Wait for states                 | Use fixed delays                              |
-| Test behavior                   | Test internal calls/impl                      |
-| Extract setup helpers           | Copy-paste setup                              |
+| Do                                  | Don’t                                         |
+| ----------------------------------- | --------------------------------------------- |
+| Assert full object with toEqual     | Check only presence with toBeTruthy + toEqual |
+| Use IDs for selectors               | Use positional selectors (.first, .nth)       |
+| Wait for states                     | Use fixed delays                              |
+| Test behavior                       | Test internal calls/impl                      |
+| Extract setup helpers               | Copy-paste setup                              |
+| Use array destructuring for helpers | Use object destructuring for related elements |
+| Return arrays from helper functions | Return objects with named properties          |
 
 <a id="common-pitfalls"></a>
 
@@ -119,6 +141,8 @@ test('navigates by hash and scrolls target into viewport', async ({page}) => {
 - Positional selectors causing flaky e2e tests
 - Over-mocking leading to testing implementation
 - Vague test names that hide intent
+- Object destructuring for helper functions (prefer arrays)
+- Manual element locator creation instead of helper functions
 
 <a id="decision-tree"></a>
 
@@ -129,6 +153,7 @@ test('navigates by hash and scrolls target into viewport', async ({page}) => {
 3. Type? → toBeTypeOf (not typeof)
 4. DOM visibility/state? → toBeVisible / toHaveAttribute
 5. Scrolling/viewport? → toBeInViewport (avoid timeouts)
+6. Related DOM elements? → Helper function returning array for destructuring
 
 <a id="playwright-tldr"></a>
 
@@ -141,6 +166,8 @@ test('navigates by hash and scrolls target into viewport', async ({page}) => {
 5. Avoid .first()/.nth(); target explicit nodes
 6. Use test.beforeEach only for neutral setup
 7. Keep tests independent; one scenario per test
+8. Use helper functions for element groups (return arrays)
+9. Prefer array destructuring over object destructuring
 
 <a id="general-principles"></a>
 
@@ -1284,25 +1311,52 @@ await expect(basicCut).toHaveAttribute('open');
 ```typescript
 test('should expand and collapse content when clicking button', async ({page}) => {
   // Arrange
-  const basicCut = page.locator(`#${CUT_IDS.BASIC}`);
-  const content = basicCut.locator(selectors.cutContent);
-  const button = basicCut.locator(selectors.cutButton);
+  const [details, summary, content] = getCutElements(page, CUT_IDS.BASIC);
 
   // Act - Expand
-  await button.click();
+  await summary.click();
 
   // Assert - Content should be visible
   await expect(content).toBeVisible();
-  await expect(basicCut).toHaveAttribute('open');
+  await expect(details).toHaveAttribute('open');
 
   // Act - Collapse
-  await button.click();
+  await summary.click();
 
   // Assert - Content should be hidden
   await expect(content).not.toBeVisible();
-  await expect(basicCut).not.toHaveAttribute('open');
+  await expect(details).not.toHaveAttribute('open');
 });
 ```
+
+### 9. Helper Functions for Element Groups
+
+**Create helper functions for related elements:**
+
+```typescript
+// ✅ Good - helper function returns array for easy destructuring
+function getCutElements(page: any, cutId: string) {
+  const summary = page.locator(`#${cutId}`);
+  const details = summary.locator('..'); // Parent details element
+  const content = details.locator(selectors.cutContent);
+  return [details, summary, content];
+}
+
+// Usage - clean destructuring
+const [details, summary, content] = getCutElements(page, CUT_IDS.BASIC);
+
+// Partial usage when not all elements needed
+const [, summary] = getCutElements(page, CUT_IDS.BASIC); // Only summary
+const [details] = getCutElements(page, CUT_IDS.BASIC); // Only details
+```
+
+**Benefits of array return format:**
+
+- **Simpler destructuring** - `const [details, summary, content] = getCutElements(...)`
+- **Partial usage** - `const [, summary] = getCutElements(...)` for summary only
+- **Consistent order** - always `[details, summary, content]`
+- **Less code** - no need for separate `content` locator
+- **More readable** - clear what each position represents
 
 ### 9. Keyboard Navigation and A11y
 
@@ -1405,3 +1459,139 @@ describe('MyService', () => {
   });
 });
 ```
+
+<a id="helper-functions"></a>
+
+## Helper Functions for Element Groups
+
+### 1. Array Return Format
+
+**Prefer arrays over objects for helper functions that return related elements:**
+
+```typescript
+// ✅ Good - returns array for easy destructuring
+function getCutElements(page: any, cutId: string) {
+  const summary = page.locator(`#${cutId}`);
+  const details = summary.locator('..'); // Parent details element
+  const content = details.locator(selectors.cutContent);
+  return [details, summary, content];
+}
+
+// Usage - clean destructuring
+const [details, summary, content] = getCutElements(page, CUT_IDS.BASIC);
+
+// Partial usage when not all elements needed
+const [, summary] = getCutElements(page, CUT_IDS.BASIC); // Only summary
+const [details] = getCutElements(page, CUT_IDS.BASIC); // Only details
+```
+
+**❌ Bad - object return format:**
+
+```typescript
+// ❌ Bad - object destructuring is more verbose
+function getCutElements(page: any, cutId: string) {
+  const summary = page.locator(`#${cutId}`);
+  const details = summary.locator('..');
+  const content = details.locator(selectors.cutContent);
+  return {summary, details, content};
+}
+
+// Usage - more verbose
+const {summary, details, content} = getCutElements(page, CUT_IDS.BASIC);
+
+// Partial usage - still need to destructure all
+const {summary} = getCutElements(page, CUT_IDS.BASIC);
+```
+
+### 2. Benefits of Array Format
+
+**Array destructuring provides several advantages:**
+
+1. **Simpler syntax** - `const [details, summary, content] = getCutElements(...)`
+2. **Partial destructuring** - `const [, summary] = getCutElements(...)` for summary only
+3. **Consistent order** - always `[details, summary, content]` regardless of usage
+4. **Less code** - no need for separate `content` locator creation
+5. **More readable** - clear what each position represents
+6. **Easier refactoring** - change order in one place
+
+### 3. Real-world Example
+
+**Before helper function:**
+
+```typescript
+// ❌ Bad - manual element creation
+test('should expand and collapse content when clicking button', async ({page}) => {
+  // Arrange
+  const basicSummary = page.locator(`#${CUT_IDS.BASIC}`);
+  const basicDetails = basicSummary.locator('..');
+  const content = basicDetails.locator(selectors.cutContent);
+
+  // Act - Expand
+  await basicSummary.click();
+
+  // Assert - Content should be visible
+  await expect(content).toBeVisible();
+  await expect(basicDetails).toHaveAttribute('open');
+});
+```
+
+**After helper function:**
+
+```typescript
+// ✅ Good - helper function with array destructuring
+test('should expand and collapse content when clicking button', async ({page}) => {
+  // Arrange
+  const [details, summary, content] = getCutElements(page, CUT_IDS.BASIC);
+
+  // Act - Expand
+  await summary.click();
+
+  // Assert - Content should be visible
+  await expect(content).toBeVisible();
+  await expect(details).toHaveAttribute('open');
+});
+```
+
+### 4. Helper Function Guidelines
+
+**When creating helper functions for element groups:**
+
+1. **Return arrays** instead of objects for easy destructuring
+2. **Use consistent order** - always return elements in the same order
+3. **Include all related elements** - return everything that might be needed
+4. **Use descriptive names** - make the function purpose clear
+5. **Document the order** - comment on what each position represents
+6. **Keep it simple** - focus on element location, not business logic
+
+```typescript
+// ✅ Good - well-documented helper function
+/**
+ * Gets all elements related to a cut component
+ * @param page - Playwright page object
+ * @param cutId - ID of the cut element
+ * @returns [details, summary, content] - array of related elements
+ */
+function getCutElements(page: any, cutId: string) {
+  const summary = page.locator(`#${cutId}`);
+  const details = summary.locator('..'); // Parent details element
+  const content = details.locator(selectors.cutContent);
+  return [details, summary, content];
+}
+```
+
+### 5. When to Use Helper Functions
+
+**Use helper functions when:**
+
+- Multiple related elements are frequently accessed together
+- Element relationships are complex (parent-child, sibling relationships)
+- The same element group is used across multiple tests
+- Element locators involve multiple steps or complex selectors
+- You want to abstract DOM structure details from test logic
+
+**Don't use helper functions when:**
+
+- Only a single element is needed
+- Elements are not logically related
+- The relationship is simple and obvious
+- The helper would only be used once
