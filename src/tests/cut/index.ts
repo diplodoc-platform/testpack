@@ -19,6 +19,7 @@ const CUT_TITLES = {
     GROUP_1: 'Первый групповой кат',
     GROUP_2: 'Второй групповой кат',
     GROUP_3: 'Третий групповой кат',
+    OPEN: 'Открытый кат',
 } as const;
 
 const CUT_IDS = {
@@ -39,6 +40,7 @@ const CUT_IDS = {
     GROUP_1: 'group-cut-1',
     GROUP_2: 'group-cut-2',
     GROUP_3: 'group-cut-3',
+    OPEN: 'open-cut',
 } as const;
 
 const selectors = {
@@ -580,6 +582,75 @@ test.describe('Cut', () => {
             await expect(group2Details).toHaveAttribute('open');
             await expect(group1Details).not.toHaveAttribute('open');
             await expect(basicDetails).toHaveAttribute('open');
+        });
+    });
+
+    test.describe('Cut with open attribute', () => {
+        test('should render cut with open attribute as expanded by default', async ({page}) => {
+            // Arrange
+            const [openDetails, openSummary, content] = getCutElements(page, CUT_IDS.OPEN);
+
+            // Assert - Cut should be expanded by default
+            await expect(openDetails).toHaveAttribute('open');
+            await expect(content).toBeVisible();
+            await expect(openSummary).toHaveText(CUT_TITLES.OPEN);
+        });
+
+        test('should allow collapsing cut with open attribute', async ({page}) => {
+            // Arrange
+            const [openDetails, openSummary, content] = getCutElements(page, CUT_IDS.OPEN);
+
+            // Assert - Cut should be expanded initially
+            await expect(openDetails).toHaveAttribute('open');
+            await expect(content).toBeVisible();
+
+            // Act - Collapse the cut
+            await openSummary.click();
+
+            // Assert - Cut should be collapsed
+            await expect(openDetails).not.toHaveAttribute('open');
+            await expect(content).not.toBeVisible();
+        });
+
+        test('should allow expanding cut with open attribute after collapsing', async ({page}) => {
+            // Arrange
+            const [openDetails, openSummary, content] = getCutElements(page, CUT_IDS.OPEN);
+
+            // Act - Collapse and then expand
+            await openSummary.click();
+            await expect(openDetails).not.toHaveAttribute('open');
+            await openSummary.click();
+
+            // Assert - Cut should be expanded again
+            await expect(openDetails).toHaveAttribute('open');
+            await expect(content).toBeVisible();
+        });
+
+        test('should maintain open state after page refresh', async ({page}) => {
+            // Arrange - Navigate to page
+            await page.goto('./ru/syntax/cut');
+
+            // Assert - Cut should be expanded by default
+            const [openDetails, , content] = getCutElements(page, CUT_IDS.OPEN);
+            await expect(openDetails).toHaveAttribute('open');
+            await expect(content).toBeVisible();
+
+            // Act - Refresh page
+            await page.reload();
+
+            // Assert - Cut should still be expanded after refresh
+            await expect(openDetails).toHaveAttribute('open');
+            await expect(content).toBeVisible();
+        });
+
+        test('should work correctly with hash navigation', async ({page}) => {
+            // Arrange - Navigate to page with hash for open cut
+            await page.goto(`./ru/syntax/cut#${CUT_IDS.OPEN}`);
+
+            // Assert - Cut should be expanded and focused
+            const [openDetails, openSummary] = getCutElements(page, CUT_IDS.OPEN);
+            await expect(openDetails).toHaveAttribute('open');
+            await expect(openSummary).toBeFocused();
         });
     });
 
