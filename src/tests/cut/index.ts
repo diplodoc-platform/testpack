@@ -16,6 +16,9 @@ const CUT_TITLES = {
     EMPTY: '',
     LIST_1: 'Кат в списке 1',
     LIST_2: 'Кат в списке 2',
+    GROUP_1: 'Первый групповой кат',
+    GROUP_2: 'Второй групповой кат',
+    GROUP_3: 'Третий групповой кат',
 } as const;
 
 const CUT_IDS = {
@@ -33,6 +36,9 @@ const CUT_IDS = {
     LIST_2: 'list-cut-2',
     HEIGHT_SHORT: 'height-short',
     HEIGHT_TALL: 'height-tall',
+    GROUP_1: 'group-cut-1',
+    GROUP_2: 'group-cut-2',
+    GROUP_3: 'group-cut-3',
 } as const;
 
 const selectors = {
@@ -500,6 +506,79 @@ test.describe('Cut', () => {
             await expect(htmlSummary).toBeFocused();
 
             // Since cuts work independently, basicDetails should still be open
+            await expect(basicDetails).toHaveAttribute('open');
+        });
+    });
+
+    test.describe('Grouped cuts (with name attribute)', () => {
+        test('should maintain dependent expand/collapse state for grouped cuts', async ({page}) => {
+            // Arrange
+            const [group1Details, group1Summary] = getCutElements(page, CUT_IDS.GROUP_1);
+            const [group2Details, group2Summary] = getCutElements(page, CUT_IDS.GROUP_2);
+            const [group3Details, group3Summary] = getCutElements(page, CUT_IDS.GROUP_3);
+
+            // Act - Expand first grouped cut
+            await group1Summary.click();
+
+            // Assert - Only first cut should be expanded
+            await expect(group1Details).toHaveAttribute('open');
+            await expect(group2Details).not.toHaveAttribute('open');
+            await expect(group3Details).not.toHaveAttribute('open');
+
+            // Act - Expand second grouped cut
+            await group2Summary.click();
+
+            // Assert - Only second cut should be expanded, first should be closed
+            await expect(group1Details).not.toHaveAttribute('open');
+            await expect(group2Details).toHaveAttribute('open');
+            await expect(group3Details).not.toHaveAttribute('open');
+
+            // Act - Expand third grouped cut
+            await group3Summary.click();
+
+            // Assert - Only third cut should be expanded, others should be closed
+            await expect(group1Details).not.toHaveAttribute('open');
+            await expect(group2Details).not.toHaveAttribute('open');
+            await expect(group3Details).toHaveAttribute('open');
+        });
+
+        test('should close other grouped cuts when opening one via hash', async ({page}) => {
+            // Arrange - Open first grouped cut
+            const [group1Details, group1Summary] = getCutElements(page, CUT_IDS.GROUP_1);
+            await group1Summary.click();
+            await expect(group1Details).toHaveAttribute('open');
+
+            // Act - Navigate to second grouped cut via hash
+            await page.goto(`./ru/syntax/cut#${CUT_IDS.GROUP_2}`);
+
+            // Assert - Second cut should be expanded, first should be closed
+            const [group2Details, group2Summary] = getCutElements(page, CUT_IDS.GROUP_2);
+            await expect(group2Details).toHaveAttribute('open');
+            await expect(group2Summary).toBeFocused();
+            await expect(group1Details).not.toHaveAttribute('open');
+        });
+
+        test('should maintain group behavior when mixing with independent cuts', async ({page}) => {
+            // Arrange - Open independent cut
+            const [basicDetails, basicSummary] = getCutElements(page, CUT_IDS.BASIC);
+            await basicSummary.click();
+            await expect(basicDetails).toHaveAttribute('open');
+
+            // Act - Open grouped cut
+            const [group1Details, group1Summary] = getCutElements(page, CUT_IDS.GROUP_1);
+            await group1Summary.click();
+
+            // Assert - Grouped cut should be open, independent cut should remain open
+            await expect(group1Details).toHaveAttribute('open');
+            await expect(basicDetails).toHaveAttribute('open');
+
+            // Act - Open another grouped cut
+            const [group2Details, group2Summary] = getCutElements(page, CUT_IDS.GROUP_2);
+            await group2Summary.click();
+
+            // Assert - New grouped cut should be open, previous grouped cut should be closed, independent cut should remain open
+            await expect(group2Details).toHaveAttribute('open');
+            await expect(group1Details).not.toHaveAttribute('open');
             await expect(basicDetails).toHaveAttribute('open');
         });
     });
