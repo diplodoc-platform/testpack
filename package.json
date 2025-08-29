@@ -29,6 +29,7 @@
     "@playwright/test": "^1.49.1"
   },
   "devDependencies": {
+    "@diplodoc/lint": "^1.3.3",
     "@types/node": "^18.19.59",
     "esbuild": "^0.19.12",
     "express": "^4.21.2",

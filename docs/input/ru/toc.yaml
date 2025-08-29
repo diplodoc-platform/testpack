@@ -35,3 +35,13 @@ items:
         href: syntax/cut.md
       - name: Terms
         href: syntax/terms.md
+  - name: Search
+    items:
+      - name: Обзор
+        href: search/index.md
+      - name: Статья 1
+        href: search/article-1.md
+      - name: Статья 2
+        href: search/article-2.md
+      - name: Статья 3
+        href: search/article-3.md
