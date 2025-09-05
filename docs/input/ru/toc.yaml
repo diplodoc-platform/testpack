@@ -45,3 +45,5 @@ items:
         href: search/article-2.md
       - name: Статья 3
         href: search/article-3.md
+  - name: Mermaid
+    href: mermaid/index.md
