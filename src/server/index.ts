@@ -25,4 +25,7 @@ app.use((req, _res, next) => {
 
 app.use(express.static(PROJECT as string));
 
-app.listen(Number(PORT));
+app.listen(Number(PORT), () => {
+    // eslint-disable-next-line no-console
+    console.log(`Documentations served on http://localhost:${PORT}`);
+});
