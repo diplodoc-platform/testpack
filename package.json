@@ -12,7 +12,8 @@
   ],
   "scripts": {
     "build": "./esbuild/build.mjs",
-    "start": "npm run build && PROJECT=docs/output PORT=3000 node build/server",
+    "start": "npm run build && npm run serve",
+    "serve": "node build/server",
     "test": "scripts/init && npx playwright test",
     "docs": "docs build -i docs/input -o docs/output",
     "lint": "lint update && lint",

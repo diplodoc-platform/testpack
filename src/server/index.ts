@@ -2,7 +2,7 @@ import express from 'express';
 
 const app = express();
 
-const {PROJECT, PORT} = process.env;
+const {PROJECT = 'docs/output', PORT = 3000} = process.env;
 
 app.get('/', (_req, res) => {
     res.send('Welcome to the Playwright Test Server!');
