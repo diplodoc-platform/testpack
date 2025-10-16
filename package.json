@@ -15,7 +15,7 @@
     "start": "npm run build && npm run serve",
     "serve": "node build/server",
     "test": "scripts/init && npx playwright test",
-    "docs": "docs build -i docs/input -o docs/output",
+    "docs": "npx @diplodoc/cli build -i docs/input -o docs/output",
     "lint": "lint update && lint",
     "lint:fix": "lint update && lint fix",
     "pre-commit": "lint update && lint-staged",
