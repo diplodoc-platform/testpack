@@ -12,6 +12,9 @@ else
   CACHE="%USERPROFILE%\AppData\Local\ms-playwright"
 fi
 
+echo "PLAYWRIGHT CACHE: $CACHE"
+ls $CACHE
+
 if [[ -z "$(ls $CACHE 2>&1  | grep chromium)" ]]; then
   npx playwright install --with-deps chromium "$@"
 fi
