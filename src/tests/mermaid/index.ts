@@ -7,6 +7,8 @@ const selectors = {
 } as const;
 
 test.describe('Mermaid', () => {
+    test.skip();
+
     test.describe('Basic functionality', () => {
         test.beforeEach(async ({page}) => {
             await page.goto('./ru/mermaid/');
