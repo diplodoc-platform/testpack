@@ -5,6 +5,8 @@ import config from './src/config';
 export default config({
     use: {
         baseURL: 'http://localhost:3000',
+        headless: true,
+        timeout: 30000,
     },
     projects: [
         {

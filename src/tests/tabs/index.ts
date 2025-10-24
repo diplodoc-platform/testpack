@@ -1,9 +1,16 @@
+import type {Page} from '@playwright/test';
+
 import {expect, test} from '@playwright/test';
 
 const CONTENT_MARKERS = {
     FIRST_BLOCK: 'Первый блок',
     SECOND_BLOCK: 'Второй блок',
     OUTER_CONTENT_1: 'Контент внешней вкладки 1.',
+} as const;
+
+const POSITION_TEST_MARKERS = {
+    HEADING_ID: 'position-test-tabs',
+    TARGET_HEADING_ID: 'position-test-target',
 } as const;
 
 const selectors = {
@@ -18,6 +25,15 @@ const selectors = {
     accordionVariant: '[data-diplodoc-variant="accordion"]',
     verticalTab: '.yfm-vertical-tab',
 } as const;
+
+// Helper function to get tab elements after a specific heading
+async function getTabElements(page: Page, headingId: string) {
+    // Find all tabs containers and get the one that comes after our heading
+    const tabsContainer = page.locator(`#${headingId} ~ ${selectors.container}`).first();
+    const tabs = tabsContainer.locator(selectors.list).locator(selectors.tab);
+
+    return [tabsContainer, tabs];
+}
 
 test.describe('Tabs', () => {
     test.beforeEach(async ({page}) => {
@@ -294,6 +310,32 @@ test.describe('Tabs', () => {
             const expectedAfter = after.headerHeight + after.panelHeights[tallIndex];
             expect(Math.abs(after.containerHeight - expectedAfter)).toBeLessThan(24);
             expect(after.containerHeight).toBeGreaterThan(initial.containerHeight);
+        });
+
+        test('should maintain header position when switching tabs', async ({page}) => {
+            // Arrange - Get tab elements after the specific heading
+            const [, tabs] = await getTabElements(page, POSITION_TEST_MARKERS.HEADING_ID);
+
+            // Find the heading that should maintain its position
+            const nextHeading = page.locator(`#${POSITION_TEST_MARKERS.TARGET_HEADING_ID}`);
+
+            // Get initial position of the heading relative to document
+            const initialHeadingPosition = await nextHeading.evaluate(
+                (el: HTMLElement) => el.offsetTop,
+            );
+
+            // Act - Switch to different tabs with identical content
+            const tabCount = await tabs.count();
+
+            for (let tabIndex = 0; tabIndex < tabCount; tabIndex++) {
+                await tabs.nth(tabIndex).click();
+                await expect(tabs.nth(tabIndex)).toHaveClass(/active/); // Wait for state change
+
+                const position = await nextHeading.evaluate((el: HTMLElement) => el.offsetTop);
+                const delta = Math.abs(position - initialHeadingPosition);
+
+                expect(delta).toBe(0);
+            }
         });
     });
 });

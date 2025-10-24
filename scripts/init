@@ -12,11 +12,11 @@ else
   CACHE="%USERPROFILE%\AppData\Local\ms-playwright"
 fi
 
-echo "PLAYWRIGHT CACHE: $CACHE"
-ls $CACHE
-
 if [[ -z "$(ls $CACHE 2>&1  | grep chromium)" ]]; then
+  echo "Installing Playwright browsers..."
   npx playwright install --with-deps chromium "$@"
+else
+  echo "Playwright browsers already cached, skipping installation"
 fi
 
 if [[ -z $(node -pe 'require.resolve("@diplodoc/cli")') ]]; then
