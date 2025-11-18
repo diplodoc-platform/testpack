@@ -10,6 +10,10 @@
     "build",
     "docs"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:diplodoc-platform/testpack.git"
+  },
   "scripts": {
     "build": "./esbuild/build.mjs",
     "start": "npm run build && npm run serve",
