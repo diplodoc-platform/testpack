@@ -7,5 +7,5 @@
     "declaration": true,
     "baseUrl": "."
   },
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "docs/output", "build", "tests/__screenshots__"]
 }
