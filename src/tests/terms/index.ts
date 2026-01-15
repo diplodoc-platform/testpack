@@ -104,6 +104,9 @@ test.describe('Terms', () => {
             });
 
             // Tooltip should be near the term (within a reasonable distance)
+            if (!tooltipBox || !termBox) {
+                throw new Error('Bounding boxes are null');
+            }
             const distance = Math.sqrt(
                 Math.pow(tooltipBox.x - termBox.x, 2) + Math.pow(tooltipBox.y - termBox.y, 2),
             );
@@ -137,6 +140,9 @@ test.describe('Terms', () => {
             // Check minimum tooltip dimensions
             const box = await tooltip.boundingBox();
             expect(box).toBeTruthy();
+            if (!box) {
+                throw new Error('Tooltip bounding box is null');
+            }
             expect(box.width).toBeGreaterThan(50); // Minimum width
             expect(box.height).toBeGreaterThan(20); // Minimum height
         });

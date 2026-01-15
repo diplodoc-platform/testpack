@@ -26,12 +26,13 @@
     "build": "./esbuild/build.mjs",
     "start": "npm run build && npm run serve",
     "serve": "node build/server",
-    "test": "scripts/init && npx playwright test",
+    "test": "./scripts/init && npx playwright test",
     "docs": "npx @diplodoc/cli build -i docs/input -o docs/output",
     "lint": "lint update && lint",
     "lint:fix": "lint update && lint fix",
     "pre-commit": "lint update && lint-staged",
-    "prepare": "husky"
+    "prepare": "husky",
+    "typecheck": "tsc --noEmit"
   },
   "author": "",
   "license": "ISC",
@@ -44,6 +45,7 @@
   "devDependencies": {
     "@diplodoc/lint": "^1.9.2",
     "@diplodoc/tsconfig": "^1.0.2",
+    "@types/express": "^4.17.25",
     "@types/node": "^18.19.59",
     "esbuild": "^0.27.2",
     "express": "^4.21.2",
