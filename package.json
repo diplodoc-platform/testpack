@@ -39,7 +39,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@playwright/test": "^1.49.1"
+    "@playwright/test": "^1.57.0"
   },
   "devDependencies": {
     "@diplodoc/lint": "^1.9.2",
