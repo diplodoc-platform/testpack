@@ -8,6 +8,7 @@ This file contains instructions for AI agents working with the `@diplodoc/testpa
 
 - **`.agents/style-and-testing.md`** in the metapackage root for:
   - Code style guidelines
+  - **Language requirements** (commit messages, comments, docs MUST be in English)
   - Commit message format (Conventional Commits)
   - Pre-commit hooks rules (**CRITICAL**: Never commit with `--no-verify`)
   - Testing standards
