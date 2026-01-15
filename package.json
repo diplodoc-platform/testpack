@@ -26,7 +26,7 @@
     "build": "./esbuild/build.mjs",
     "start": "npm run build && npm run serve",
     "serve": "node build/server",
-    "test": "./scripts/init && npx playwright test",
+    "test": "node ./scripts/init.js && npx playwright test",
     "docs": "npx @diplodoc/cli build -i docs/input -o docs/output",
     "lint": "lint update && lint",
     "lint:fix": "lint update && lint fix",
