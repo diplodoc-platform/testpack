@@ -1,6 +1,6 @@
 {
   "name": "@diplodoc/testpack",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Collection of end-to-end tests for Diplodoc platform",
   "main": "index.js",
   "exports": {
