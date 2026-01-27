@@ -43,7 +43,7 @@
     "@playwright/test": "^1.49.1"
   },
   "devDependencies": {
-    "@diplodoc/lint": "^1.9.2",
+    "@diplodoc/lint": "^1.10.2",
     "@diplodoc/tsconfig": "^1.0.2",
     "@types/express": "^4.17.25",
     "@types/node": "^22.19.7",
