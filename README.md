@@ -1,4 +1,15 @@
+**english** | [русский](https://github.com/diplodoc-platform/testpack/blob/master/README.ru.md)
+
+---
+
 [![NPM version](https://img.shields.io/npm/v/@diplodoc/testpack.svg?style=flat)](https://www.npmjs.org/package/@diplodoc/testpack)
+
+<!--
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=diplodoc-platform_testpack&metric=alert_status)](https://sonarcloud.io/summary/overall?id=diplodoc-platform_testpack)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=diplodoc-platform_testpack&metric=coverage)](https://sonarcloud.io/summary/overall?id=diplodoc-platform_testpack)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=diplodoc-platform_testpack&metric=sqale_rating)](https://sonarcloud.io/summary/overall?id=diplodoc-platform_testpack)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=diplodoc-platform_testpack&metric=reliability_rating)](https://sonarcloud.io/summary/overall?id=diplodoc-platform_testpack)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=diplodoc-platform_testpack&metric=security_rating)](https://sonarcloud.io/summary/overall?id=diplodoc-platform_testpack) -->
 
 # @diplodoc/testpack
 
