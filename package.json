@@ -28,11 +28,12 @@
     "serve": "node build/server",
     "test": "node ./scripts/init.js && npx playwright test",
     "docs": "npx @diplodoc/cli build -i docs/input -o docs/output",
-    "lint": "lint update && lint",
-    "lint:fix": "lint update && lint fix",
-    "pre-commit": "lint update && lint-staged",
-    "prepare": "husky",
-    "typecheck": "tsc --noEmit"
+    "lint": "lint",
+    "lint:fix": "lint fix",
+    "pre-commit": "lint-staged",
+    "prepare": "husky || true",
+    "typecheck": "tsc --noEmit",
+    "lock": "npm install --no-workspaces --package-lock-only --ignore-scripts"
   },
   "author": "",
   "license": "ISC",
@@ -43,7 +44,7 @@
     "@playwright/test": "^1.60.0"
   },
   "devDependencies": {
-    "@diplodoc/infra": "2.1.0",
+    "@diplodoc/infra": "2.2.1",
     "@diplodoc/lint": "^1.9.2",
     "@types/express": "^4.17.25",
     "@types/node": "^22.19.7",
