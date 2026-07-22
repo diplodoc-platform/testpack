@@ -20,7 +20,7 @@ test.describe('Terms', () => {
             await expect(termElement).toHaveAttribute('role', 'button');
             await expect(termElement).toHaveAttribute('tabindex', '0');
             await expect(termElement).toHaveAttribute('term-key');
-            await expect(termElement).toHaveAttribute('aria-describedby');
+            await expect(termElement).toHaveAttribute('aria-controls');
             await expect(termElement).toHaveAttribute('id');
         });
 
