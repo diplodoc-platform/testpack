@@ -23,7 +23,7 @@
   },
   "homepage": "https://diplodoc.com/",
   "scripts": {
-    "build": "./esbuild/build.mjs",
+    "build": "node ./esbuild/build.mjs",
     "start": "npm run build && npm run serve",
     "serve": "node build/server",
     "test": "node ./scripts/init.js && npx playwright test",
@@ -54,6 +54,6 @@
     "typescript": "^5.6.3"
   },
   "peerDependencies": {
-    "@diplodoc/cli": "*"
+    "@diplodoc/cli": "^5.50.3"
   }
 }

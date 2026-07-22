@@ -6,7 +6,7 @@ import {expect, test} from '@playwright/test';
 const SEARCH_SELECTORS = {
     searchInput: '.dc-search-suggest input',
     searchPopup: '.dc-search-suggest__popup',
-    searchList: '.dc-search-suggest__list .g-list__items',
+    searchList: '.dc-search-suggest__list [role=listbox]',
     searchItem: '.dc-search-suggest__list .g-list__item',
     searchLoader: '.dc-search-suggest__loader',
     searchEmpty: '.dc-search-suggest__list_empty',

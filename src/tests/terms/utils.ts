@@ -15,8 +15,8 @@ export async function findTerm(page: Page, nth = 0) {
 
 export async function findTooltip(page: Page, term?: Locator) {
     term = term || (await findTerm(page));
-    // Get aria-describedby to find the corresponding tooltip
-    const ariaDescribedBy = await term.getAttribute('aria-describedby');
+    // Get aria-controls to find the corresponding tooltip
+    const termId = await term.getAttribute('aria-controls');
 
-    return page.locator(`dfn[id="${ariaDescribedBy}"]`);
+    return page.locator(`dfn[id="${termId}"]`);
 }
