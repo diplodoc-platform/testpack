@@ -4,8 +4,7 @@
     "target": "es2020",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "declaration": true,
-    "baseUrl": "."
+    "declaration": true
   },
   "exclude": ["node_modules", "docs/output", "build", "tests/__screenshots__"]
 }
