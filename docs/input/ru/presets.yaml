@@ -1,0 +1,44 @@
+default:
+  project_name: Diplodoc
+  env: test
+  version: 5.55
+  items:
+    - name: Alpha
+      value: First
+    - name: Beta
+      value: Second
+    - name: Gamma
+      value: Third
+  schema_info:
+    package: '@diplodoc/ajv'
+    version: '0.4.4'
+    schemas:
+      - frontmatter
+      - toc
+      - redirects
+      - theme
+  liquid_user:
+    name: alice
+    role: editor
+    age: 25
+    active: true
+    address:
+      city: Moscow
+  liquid_greeting: hello world
+  liquid_tags:
+    - premium
+    - vip
+  liquid_groups:
+    - name: Alpha
+      members:
+        - Alice
+        - Ivan
+    - name: Beta
+      members:
+        - Petr
+        - Olga
+  liquid_word: Pasha
+  liquid_range:
+    - 1
+    - 2
+    - 3
