@@ -35,6 +35,26 @@ items:
         href: syntax/cut.md
       - name: Terms
         href: syntax/terms.md
+      - name: Markdown
+        href: syntax/markdown.md
+      - name: CLI Features
+        href: syntax/cli-features.md
+      - name: Components
+        href: syntax/components.md
+      - name: Transform
+        href: syntax/transform.md
+      - name: AJV Schemas
+        href: syntax/ajv-schemas.md
+      - name: Client
+        href: syntax/client.md
+      - name: Utils
+        href: syntax/utils.md
+      - name: Liquid
+        href: syntax/liquid.md
+      - name: YFM Lint
+        href: syntax/yfmlint.md
+      - name: File Extension
+        href: syntax/file.md
   - name: Search
     items:
       - name: Обзор
