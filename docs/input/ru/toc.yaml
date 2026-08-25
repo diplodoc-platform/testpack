@@ -55,6 +55,10 @@ items:
         href: syntax/yfmlint.md
       - name: File Extension
         href: syntax/file.md
+      - name: OpenAPI Sandbox
+        href: syntax/openapi.md
+      - name: Page Constructor
+        href: syntax/page-constructor.md
   - name: Search
     items:
       - name: Обзор
