@@ -13,3 +13,5 @@ import './client';
 import './liquid';
 import './yfmlint';
 import './file';
+import './openapi';
+import './page-constructor';
