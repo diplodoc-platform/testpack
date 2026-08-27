@@ -19,3 +19,4 @@ import './infra';
 import './vsc';
 import './testpack';
 import './directive';
+import './algolia';
