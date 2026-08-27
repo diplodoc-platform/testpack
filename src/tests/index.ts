@@ -18,3 +18,4 @@ import './page-constructor';
 import './infra';
 import './vsc';
 import './testpack';
+import './directive';
