@@ -15,3 +15,5 @@ import './yfmlint';
 import './file';
 import './openapi';
 import './page-constructor';
+import './infra';
+import './vsc';
