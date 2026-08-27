@@ -77,6 +77,20 @@ default:
       - diplodoc.insertVideo
       - diplodoc.insertComment
       - diplodoc.findFileReferences
+  directive_info:
+    package: '@diplodoc/directive'
+    version: '0.3.6'
+    description: 'Pluggable parser for directive syntax in markdown markup'
+    syntax_forms:
+      - name: Inline
+        marker: ':name'
+        description: 'Inline directive found in text flow'
+      - name: Leaf block
+        marker: '::name'
+        description: 'Leaf block directive without content'
+      - name: Container block
+        marker: ':::name'
+        description: 'Container block directive with content between :::name and :::'
   testpack_info:
     package: '@diplodoc/testpack'
     version: '1.0.1'

@@ -65,6 +65,8 @@ items:
         href: syntax/vsc.md
       - name: Testpack
         href: syntax/testpack.md
+      - name: Directive
+        href: syntax/directive.md
   - name: Search
     items:
       - name: Обзор
