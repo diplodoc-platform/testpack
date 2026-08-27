@@ -59,6 +59,10 @@ items:
         href: syntax/openapi.md
       - name: Page Constructor
         href: syntax/page-constructor.md
+      - name: Infra
+        href: syntax/infra.md
+      - name: VSC Extension
+        href: syntax/vsc.md
   - name: Search
     items:
       - name: Обзор

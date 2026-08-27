@@ -42,3 +42,57 @@ default:
     - 1
     - 2
     - 3
+  infra_info:
+    package: '@diplodoc/infra'
+    version: '2.2.3'
+    description: 'Central infrastructure package for linting, CI workflows, and scaffolding'
+    binaries:
+      - lint
+      - infra
+    exports:
+      - eslint-config
+      - prettier-config
+      - stylelint-config
+      - esbuild
+  vsc_info:
+    package: 'diplodoc-vsc-extension'
+    version: '1.4.1'
+    description: 'VS Code extension for Diplodoc — schema validation, linting, and visual editors'
+    editor_mode: 'wysiwyg'
+    commands:
+      - diplodoc.openMdEditor
+      - diplodoc.openTocEditor
+      - diplodoc.initProject
+      - diplodoc.insertTable
+      - diplodoc.insertNote
+      - diplodoc.insertCut
+      - diplodoc.insertTab
+      - diplodoc.insertCodeBlock
+      - diplodoc.insertInclude
+      - diplodoc.insertQuote
+      - diplodoc.insertMermaid
+      - diplodoc.insertFrontmatter
+      - diplodoc.insertPageConstructor
+      - diplodoc.insertHtmlBlock
+      - diplodoc.insertVideo
+      - diplodoc.insertComment
+      - diplodoc.findFileReferences
+  testpack_info:
+    package: '@diplodoc/testpack'
+    version: '1.0.1'
+    description: 'E2E test infrastructure for the Diplodoc documentation platform'
+    scripts:
+      - name: 'npm run build'
+        description: 'Build config, server, and tests via esbuild'
+      - name: 'npm run start'
+        description: 'Build and start the Express test server'
+      - name: 'npm run test'
+        description: 'Bootstrap and run Playwright test suites'
+      - name: 'npm run docs'
+        description: 'Build YFM fixtures via @diplodoc/cli'
+      - name: 'npm run lint'
+        description: 'Run ESLint and Prettier checks'
+    exports:
+      - '@diplodoc/testpack/config'
+      - '@diplodoc/testpack/server'
+      - '@diplodoc/testpack/tests'
