@@ -17,3 +17,4 @@ import './openapi';
 import './page-constructor';
 import './infra';
 import './vsc';
+import './testpack';

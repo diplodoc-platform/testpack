@@ -63,6 +63,8 @@ items:
         href: syntax/infra.md
       - name: VSC Extension
         href: syntax/vsc.md
+      - name: Testpack
+        href: syntax/testpack.md
   - name: Search
     items:
       - name: Обзор
