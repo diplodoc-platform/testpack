@@ -67,6 +67,8 @@ items:
         href: syntax/testpack.md
       - name: Directive
         href: syntax/directive.md
+      - name: Algolia
+        href: syntax/algolia.md
   - name: Search
     items:
       - name: Обзор

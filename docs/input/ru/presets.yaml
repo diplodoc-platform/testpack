@@ -91,6 +91,31 @@ default:
       - name: Container block
         marker: ':::name'
         description: 'Container block directive with content between :::name and :::'
+  algolia_info:
+    package: '@diplodoc/algolia-extension'
+    version: '0.7.1'
+    description: 'Algolia search integration extension for Diplodoc — indexing and client-side search'
+    options:
+      - flag: '--app-id <id>'
+        description: 'Algolia Application ID'
+      - flag: '--api-key <key>'
+        description: 'Algolia API Key'
+      - flag: '--index-name <name>'
+        description: 'Algolia Index Name'
+      - flag: '--index [boolean]'
+        description: 'Whether to create and upload an index for search'
+      - flag: '--search-api-key <key>'
+        description: 'Client-side API key for search'
+      - flag: '--search-provider <name>'
+        description: 'Search provider name'
+      - flag: '--search-api <path>'
+        description: 'Path to the client-side search API'
+    dependencies:
+      - '@diplodoc/search-extension'
+      - algoliasearch
+      - cheerio
+      - lodash
+      - ts-dedent
   testpack_info:
     package: '@diplodoc/testpack'
     version: '1.0.1'
