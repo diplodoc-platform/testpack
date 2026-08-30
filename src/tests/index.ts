@@ -23,3 +23,5 @@ import './algolia';
 import './cut-extension';
 import './sentenizer';
 import './html';
+import './latex';
+import './translation';

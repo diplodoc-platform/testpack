@@ -75,6 +75,10 @@ items:
         href: syntax/sentenizer.md
       - name: HTML Extension
         href: syntax/html.md
+      - name: Latex Extension
+        href: syntax/latex.md
+      - name: Translation
+        href: syntax/translation.md
   - name: Search
     items:
       - name: Обзор
