@@ -73,6 +73,8 @@ items:
         href: syntax/cut-extension.md
       - name: Sentenizer
         href: syntax/sentenizer.md
+      - name: HTML Extension
+        href: syntax/html.md
   - name: Search
     items:
       - name: Обзор
