@@ -20,3 +20,4 @@ import './vsc';
 import './testpack';
 import './directive';
 import './algolia';
+import './sentenizer';

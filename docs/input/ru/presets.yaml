@@ -116,6 +116,41 @@ default:
       - cheerio
       - lodash
       - ts-dedent
+  sentenizer_info:
+    package: '@diplodoc/sentenizer'
+    version: '0.0.11'
+    description: 'Rule-based NLP library for Russian sentence segmentation'
+    keywords:
+      - nlp
+      - parser
+      - tokenization
+      - sentence-segmentation
+      - russian
+    join_rules:
+      - name: 'spaceBothSides'
+        description: 'Spaces appear on both sides of the boundary'
+      - name: 'rightLacksSpacePrefix'
+        description: 'Right chunk lacks a leading space'
+      - name: 'rightStartsWithLowercase'
+        description: 'Right chunk starts with a lowercase letter'
+      - name: 'rightDelimiterPrefix'
+        description: 'Right chunk starts with a delimiter'
+      - name: 'rightQuotationGenericPrefix'
+        description: 'Right chunk starts with a generic quotation mark'
+      - name: 'rightQuotationClosePrefix'
+        description: 'Right chunk starts with a closing quotation mark'
+      - name: 'rightBracketsClosePrefix'
+        description: 'Right chunk starts with a closing bracket'
+      - name: 'rightOnlySpaces'
+        description: 'Right chunk consists only of spaces'
+      - name: 'leftInitials'
+        description: 'Left chunk ends with initials (e.g. И. В.)'
+      - name: 'leftAbbreviation'
+        description: 'Left chunk ends with a known abbreviation'
+      - name: 'pairAbbreviation'
+        description: 'The pair forms a known two-word abbreviation'
+      - name: 'leftPairsTailAbbreviation'
+        description: 'Split occurs at the tail of a pair abbreviation'
   testpack_info:
     package: '@diplodoc/testpack'
     version: '1.0.1'
