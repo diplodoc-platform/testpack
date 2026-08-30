@@ -25,3 +25,4 @@ import './sentenizer';
 import './html';
 import './latex';
 import './translation';
+import './search-extension';
