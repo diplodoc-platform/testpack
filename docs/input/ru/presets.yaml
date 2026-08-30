@@ -243,6 +243,24 @@ default:
       - './indexer'
       - './worker'
       - './worker/langs'
+  tabs_info:
+    package: '@diplodoc/tabs-extension'
+    version: '3.10.7'
+    description: 'Tabs plugin for Diplodoc transformer and builder — switchable tabs with variants and group synchronization'
+    variants:
+      - name: 'regular'
+        description: 'Horizontal tabs (default)'
+      - name: 'radio'
+        description: 'Vertical radio-style tabs'
+      - name: 'dropdown'
+        description: 'Dropdown menu selector'
+      - name: 'accordion'
+        description: 'Collapsible accordion sections'
+    exports:
+      - '@diplodoc/tabs-extension'
+      - '@diplodoc/tabs-extension/runtime'
+      - '@diplodoc/tabs-extension/runtime/styles'
+      - '@diplodoc/tabs-extension/react'
   testpack_info:
     package: '@diplodoc/testpack'
     version: '1.0.1'

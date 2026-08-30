@@ -26,3 +26,4 @@ import './html';
 import './latex';
 import './translation';
 import './search-extension';
+import './tabs-extension';

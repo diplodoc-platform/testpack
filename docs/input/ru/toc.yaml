@@ -31,6 +31,8 @@ items:
     items:
       - name: Tabs
         href: syntax/tabs.md
+      - name: Tabs Extension
+        href: syntax/tabs-extension.md
       - name: Cut
         href: syntax/cut.md
       - name: Terms
