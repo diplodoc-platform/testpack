@@ -79,6 +79,8 @@ items:
         href: syntax/latex.md
       - name: Translation
         href: syntax/translation.md
+      - name: Search Extension
+        href: syntax/search-extension.md
   - name: Search
     items:
       - name: Обзор

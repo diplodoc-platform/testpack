@@ -207,6 +207,42 @@ default:
       - '@diplodoc/translation'
       - '@diplodoc/translation/package'
       - '@diplodoc/translation/schemas/*'
+  search_info:
+    package: '@diplodoc/search-extension'
+    version: '3.1.1'
+    description: 'Lunr based offline search extension for Diplodoc platform'
+    tolerance_levels:
+      - level: 0
+        pattern: 'word'
+        description: 'Precise match only'
+      - level: 1
+        pattern: 'word*'
+        description: 'Trailing wildcard on every clause'
+      - level: 2
+        pattern: '*word*'
+        description: 'Leading and trailing wildcards on every clause'
+    confidence_modes:
+      - mode: 'phrased'
+        description: 'Phrase-aware scoring rewarding consecutive tokens within MERGE_TOLERANCE distance'
+      - mode: 'sparsed'
+        description: 'Plain Lunr scoring without phrase awareness'
+    field_boosts:
+      - field: 'title'
+        boost: 10
+      - field: 'keywords'
+        boost: 8
+      - field: 'content'
+        boost: 1
+    dependencies:
+      - he
+      - lunr
+      - lunr-languages
+      - node-html-parser
+    exports:
+      - '.'
+      - './indexer'
+      - './worker'
+      - './worker/langs'
   testpack_info:
     package: '@diplodoc/testpack'
     version: '1.0.1'
