@@ -69,6 +69,8 @@ items:
         href: syntax/directive.md
       - name: Algolia
         href: syntax/algolia.md
+      - name: Sentenizer
+        href: syntax/sentenizer.md
   - name: Search
     items:
       - name: Обзор
