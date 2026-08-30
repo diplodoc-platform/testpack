@@ -157,7 +157,7 @@ test.describe('Components', () => {
             const items = list.locator('.dc-toc__list-item');
 
             await expect(list).toBeVisible();
-            await expect(items).toHaveCount(24);
+            await expect(items).toHaveCount(25);
         });
 
         test('should mark current page as active in TOC', async ({page}) => {

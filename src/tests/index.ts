@@ -20,4 +20,5 @@ import './vsc';
 import './testpack';
 import './directive';
 import './algolia';
+import './cut-extension';
 import './sentenizer';
