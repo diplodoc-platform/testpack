@@ -176,6 +176,37 @@ default:
     exports:
       - '@diplodoc/cut-extension'
       - '@diplodoc/cut-extension/runtime'
+  latex_info:
+    package: '@diplodoc/latex-extension'
+    version: '2.0.2'
+    description: 'LaTeX math rendering extension for Diplodoc using KaTeX'
+    dependencies:
+      - katex
+      - markdown-it
+    exports:
+      - '@diplodoc/latex-extension'
+      - '@diplodoc/latex-extension/plugin'
+      - '@diplodoc/latex-extension/runtime'
+      - '@diplodoc/latex-extension/runtime/styles'
+      - '@diplodoc/latex-extension/react'
+      - '@diplodoc/latex-extension/hooks'
+  translation_info:
+    package: '@diplodoc/translation'
+    version: '1.7.31'
+    description: 'Markdown translation utilities — XLIFF extraction, skeleton generation, and composition'
+    dependencies:
+      - '@diplodoc/sentenizer'
+      - '@diplodoc/transform'
+      - '@diplodoc/directive'
+      - '@diplodoc/ajv'
+      - markdown-it
+      - cheerio
+      - fast-xml-parser
+      - js-yaml
+    exports:
+      - '@diplodoc/translation'
+      - '@diplodoc/translation/package'
+      - '@diplodoc/translation/schemas/*'
   testpack_info:
     package: '@diplodoc/testpack'
     version: '1.0.1'
