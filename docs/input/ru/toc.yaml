@@ -83,6 +83,8 @@ items:
         href: syntax/translation.md
       - name: Search Extension
         href: syntax/search-extension.md
+      - name: Color Extension
+        href: syntax/color.md
   - name: Search
     items:
       - name: Обзор

@@ -261,6 +261,14 @@ default:
       - '@diplodoc/tabs-extension/runtime'
       - '@diplodoc/tabs-extension/runtime/styles'
       - '@diplodoc/tabs-extension/react'
+  color_info:
+    package: '@diplodoc/color-extension'
+    version: '1.0.0'
+    description: 'Inline color plugin for Diplodoc transformer and builder'
+    dependencies:
+      - markdown-it
+    exports:
+      - '@diplodoc/color-extension'
   testpack_info:
     package: '@diplodoc/testpack'
     version: '1.0.1'
