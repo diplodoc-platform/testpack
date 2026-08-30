@@ -151,6 +151,16 @@ default:
         description: 'The pair forms a known two-word abbreviation'
       - name: 'leftPairsTailAbbreviation'
         description: 'Split occurs at the tail of a pair abbreviation'
+  cut_info:
+    package: '@diplodoc/cut-extension'
+    version: '1.1.7'
+    description: 'Cut extension for Diplodoc platform — collapsible sections with grouping and hash navigation'
+    dependencies:
+      - '@diplodoc/directive'
+      - '@diplodoc/utils'
+    exports:
+      - '@diplodoc/cut-extension'
+      - '@diplodoc/cut-extension/runtime'
   testpack_info:
     package: '@diplodoc/testpack'
     version: '1.0.1'
