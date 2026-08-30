@@ -151,6 +151,21 @@ default:
         description: 'The pair forms a known two-word abbreviation'
       - name: 'leftPairsTailAbbreviation'
         description: 'Split occurs at the tail of a pair abbreviation'
+  html_info:
+    package: '@diplodoc/html-extension'
+    version: '2.9.13'
+    description: 'HTML plugin for Diplodoc transformer and builder — safe inline HTML via container directive'
+    dependencies:
+      - '@diplodoc/directive'
+      - parse5
+      - '@diplodoc/transform'
+      - markdown-it
+    exports:
+      - '@diplodoc/html-extension'
+      - '@diplodoc/html-extension/runtime'
+      - '@diplodoc/html-extension/react'
+      - '@diplodoc/html-extension/utils'
+      - '@diplodoc/html-extension/iframe'
   cut_info:
     package: '@diplodoc/cut-extension'
     version: '1.1.7'

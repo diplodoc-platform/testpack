@@ -22,3 +22,4 @@ import './directive';
 import './algolia';
 import './cut-extension';
 import './sentenizer';
+import './html';
