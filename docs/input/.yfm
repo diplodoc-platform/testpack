@@ -1,3 +1,7 @@
 allowHtml: true
 langs: ['ru', 'en']
 search: true
+extensions:
+  - name: mdit-plugins
+    plugins:
+      - resolver: ./folding-headings-plugin.js
