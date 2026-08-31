@@ -28,3 +28,4 @@ import './translation';
 import './search-extension';
 import './tabs-extension';
 import './color';
+import './folding-headings';

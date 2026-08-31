@@ -85,6 +85,8 @@ items:
         href: syntax/search-extension.md
       - name: Color Extension
         href: syntax/color.md
+      - name: Folding Test
+        href: syntax/folding-test.md
   - name: Search
     items:
       - name: Обзор
