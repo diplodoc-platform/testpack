@@ -87,6 +87,8 @@ items:
         href: syntax/color.md
       - name: Folding Test
         href: syntax/folding-test.md
+      - name: Quote Link Extension
+        href: syntax/quote-link.md
   - name: Search
     items:
       - name: Обзор

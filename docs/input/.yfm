@@ -5,3 +5,4 @@ extensions:
   - name: mdit-plugins
     plugins:
       - resolver: ./folding-headings-plugin.js
+      - resolver: ./quote-link-plugin.js

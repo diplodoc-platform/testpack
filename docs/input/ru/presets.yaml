@@ -288,3 +288,13 @@ default:
       - '@diplodoc/testpack/config'
       - '@diplodoc/testpack/server'
       - '@diplodoc/testpack/tests'
+  quote_link_info:
+    package: '@diplodoc/quote-link-extension'
+    version: '0.1.8'
+    description: 'Quote link extension for Diplodoc platform'
+    dependencies:
+      - '@diplodoc/utils'
+    exports:
+      - '.'
+      - './runtime'
+      - './runtime/styles'
