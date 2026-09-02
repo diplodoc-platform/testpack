@@ -30,3 +30,4 @@ import './tabs-extension';
 import './color';
 import './folding-headings';
 import './quote-link';
+import './package-template';

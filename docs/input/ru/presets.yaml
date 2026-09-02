@@ -298,3 +298,18 @@ default:
       - '.'
       - './runtime'
       - './runtime/styles'
+  package_template_info:
+    package: '@diplodoc/package-template'
+    version: '2.0.1'
+    description: 'Template package for creating new packages on the Diplodoc platform'
+    exports:
+      - 'example'
+      - 'greet'
+    config_files:
+      - '.eslintrc.js'
+      - '.prettierrc.js'
+      - '.stylelintrc.js'
+      - '.lintstagedrc.js'
+      - '.editorconfig'
+      - '.husky/pre-commit'
+      - 'sonar-project.properties'

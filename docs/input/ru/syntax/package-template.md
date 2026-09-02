@@ -1,37 +1,21 @@
 ---
 title: Package Template
-description: Template package for creating new packages on the Diplodoc platform
-stage: preview
-tags:
-  - package-template
-  - template
-  - scaffolding
-  - esbuild
-  - vitest
+description: Documentation for @diplodoc/package-template — scaffolding template for new Diplodoc packages
+stage: new
+tags: [package-template, scaffolding, template, devops, starter]
 ---
 
 # {{ package_template_info.package }}
 
 {{ package_template_info.description }}
 
-## Overview
+The `@diplodoc/package-template` package (v{{ package_template_info.version }}) is the starting point for creating new packages on the Diplodoc platform. It ships with TypeScript configuration, build setup, Vitest testing, and a full set of canonical `@diplodoc/infra` scaffolding files committed in-tree.
 
-The `@diplodoc/package-template` is the starting point for creating new packages on the Diplodoc platform. It ships with:
+## Example API {#example-api}
 
-- TypeScript configuration extending `@diplodoc/infra/tsconfig.json`
-- Build setup using `@diplodoc/infra/esbuild` (esbuild re-exported from infra)
-- Vitest testing setup with an example test
-- A full set of canonical `@diplodoc/infra` scaffolding files committed in-tree
-- A minimal `init.sh` script for bootstrapping new packages
-- Migration docs for users coming from the pre-`@diplodoc/infra` version
+The template includes two example functions demonstrating the package's entry point pattern:
 
-## API
-
-The template package exports two example functions:
-
-### example()
-
-Returns the string `'example'`.
+### example() {#example-function}
 
 ```typescript
 import {example} from '@diplodoc/package-template';
@@ -40,9 +24,7 @@ const result = example();
 console.log(result); // 'example'
 ```
 
-### greet(name)
-
-Greets a person by name.
+### greet(name) {#greet-function}
 
 ```typescript
 import {greet} from '@diplodoc/package-template';
@@ -51,14 +33,54 @@ const message = greet('Alice');
 console.log(message); // 'Hello, Alice!'
 ```
 
-| Function | Parameter | Return Type | Description |
-|----------|-----------|-------------|-------------|
-| `example` | — | `string` | Returns `'example'` |
-| `greet` | `name: string` | `string` | Returns `'Hello, ${name}!'` |
+## Initialization Script {#init-script}
 
-## Build System {#build-system}
+The `init.sh` script bootstraps a new package from the template. Usage:
 
-The package uses **esbuild** (re-exported from `@diplodoc/infra/esbuild`) for fast builds.
+```bash
+# Clone this repo to a new folder
+git clone git@github.com:diplodoc-platform/package-template.git new-package
+cd new-package
+
+# Init repo with the new package name
+./init.sh new-package
+```
+
+The script performs the following steps:
+
+1. Replace `package-template` with your package name in `package.json`, `README.md`, and `AGENTS.md`
+2. Strip the template section from `AGENTS.md`
+3. Refresh `@diplodoc/infra` scaffolding to the latest version via `npx @diplodoc/infra init`
+4. Install dependencies
+5. Update the git remote URL
+6. Remove template-only files (`init.sh`, `README-template.md`, `MIGRATION*.md`)
+
+## Package Structure {#package-structure}
+
+The package structure after initialization:
+
+```text
+package-name/
+├── src/
+│   ├── index.ts                  # Main source file
+│   └── index.test.ts             # Example test file
+├── build/                        # Build output (generated)
+├── esbuild/
+│   └── build.mjs                 # Build configuration
+├── .github/
+│   ├── workflows/                # CI/CD workflows
+│   ├── CODEOWNERS                # Code owners
+│   └── dependabot.yml            # Dependabot configuration
+├── .husky/                       # Git hooks
+├── tsconfig.json                 # TypeScript configuration
+├── vitest.config.mjs             # Vitest configuration
+├── package.json
+└── README.md
+```
+
+## Build Configuration {#build-config}
+
+The build uses `@diplodoc/infra/esbuild` (esbuild is re-exported from `@diplodoc/infra`):
 
 ```javascript
 import {build} from '@diplodoc/infra/esbuild';
@@ -76,117 +98,90 @@ build({
 });
 ```
 
-| Build Step | Script | Description |
-|------------|--------|-------------|
-| Clean | `npm run build:clean` | Removes the `build/` directory |
-| JavaScript | `npm run build:js` | Bundles via esbuild from `@diplodoc/infra/esbuild` |
-| Declarations | `npm run build:declarations` | Generates TypeScript declarations via `tsc` |
-
-## TypeScript Configuration {#ts-config}
-
-The package extends `@diplodoc/infra/tsconfig.json`:
-
-| Setting | Value | Description |
-|---------|-------|-------------|
-| `target` | `es2022` | ECMAScript 2022 target |
-| `module` | `es2022` | ES module format |
-| `declaration` | `true` | Generate `.d.ts` files |
-| `moduleResolution` | `bundler` | Bundler-style module resolution |
-
-## Testing {#testing}
-
-The package uses **Vitest** for unit testing.
-
-```typescript
-import {describe, expect, it} from 'vitest';
-import {example, greet} from './index';
-
-describe('example', () => {
-    it('should return example string', () => {
-        expect(example()).toBe('example');
-    });
-});
-
-describe('greet', () => {
-    it('should greet with name', () => {
-        expect(greet('World')).toBe('Hello, World!');
-    });
-});
-```
-
-| Test Command | Description |
-|--------------|-------------|
-| `npm test` | Run tests once |
-| `npm run test:watch` | Run tests in watch mode |
-| `npm run test:coverage` | Run tests with coverage report |
-
-## init.sh {#init-sh}
-
-The `init.sh` script bootstraps a new package from the template:
-
-1. Replaces `package-template` with the new package name in `package.json`, `README.md`, and `AGENTS.md`
-2. Strips the template section from `AGENTS.md`
-3. Runs `npx @diplodoc/infra init` to refresh scaffolding
-4. Installs dependencies
-5. Removes template-only files (`init.sh`, `README-template.md`, `MIGRATION*.md`)
-6. Updates the git remote URL
+Type declarations are generated via `tsc`:
 
 ```bash
-git clone git@github.com:diplodoc-platform/package-template.git new-package
-cd new-package
-./init.sh new-package
+tsc --project tsconfig.publish.json --emitDeclarationOnly --outDir ./build
 ```
 
-## Scaffolding Files {#scaffolding}
+## Vitest Configuration {#vitest-config}
 
-The following files are managed by `@diplodoc/infra` and must not be edited manually:
+Tests use Vitest with v8 coverage:
 
-| File | Managed By | Purpose |
-|------|------------|---------|
-| `.eslintrc.js` | `@diplodoc/infra` | ESLint configuration |
-| `.prettierrc.js` | `@diplodoc/infra` | Prettier configuration |
-| `.stylelintrc.js` | `@diplodoc/infra` | Stylelint configuration |
-| `.lintstagedrc.js` | `@diplodoc/infra` | lint-staged configuration |
-| `.editorconfig` | `@diplodoc/infra` | Editor configuration |
-| `.husky/pre-commit` | `@diplodoc/infra` | Git pre-commit hook |
-| `sonar-project.properties` | `@diplodoc/infra` | SonarCloud configuration |
+```javascript
+import {defineConfig} from 'vitest/config';
 
-## CI/CD {#ci-cd}
+export default defineConfig({
+    test: {
+        include: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
+        coverage: {
+            enabled: true,
+            provider: 'v8',
+            include: ['src'],
+        },
+    },
+});
+```
 
-The package ships with standard GitHub Actions workflows from `@diplodoc/infra`:
+## Scaffolding Files {#scaffolding-files}
 
-| Workflow | File | Description |
-|----------|------|-------------|
-| Tests | `tests.yml` | Type check, lint, tests, build |
-| Security | `security.yml` | Weekly `npm audit` |
-| Coverage | `coverage.yml` | Optional coverage upload |
-| Release | `release.yml` | Publish to npm on release |
-| Release Please | `release-please.yml` | Automated versioning |
-| Package Lock | `package-lock.yml` | Keep lockfile in sync |
-| Update Deps | `update-deps.yml` | Bump `@diplodoc/*` dependencies |
+Files distributed during `@diplodoc/infra init` and `infra update`:
+
+- `.eslintrc.js` — ESLint entry point
+- `.prettierrc.js` — Prettier entry point
+- `.stylelintrc.js` — Stylelint entry point
+- `.lintstagedrc.js` — lint-staged configuration
+- `.editorconfig` — editor settings
+- `.husky/pre-commit` — pre-commit hook
+- `sonar-project.properties` — SonarCloud configuration
+
+## CI/CD Workflows {#ci-cd}
+
+The package ships with a standard set of GitHub Actions workflows:
+
+| Workflow | Purpose |
+| --- | --- |
+| `tests.yml` | Type check, lint, tests, build on Linux/macOS/Windows |
+| `security.yml` | Weekly `npm audit` |
+| `coverage.yml` | Optional coverage upload to SonarCloud |
+| `release.yml` | Publishes the package to npm on release |
+| `release-please.yml` | Generates release PRs with CHANGELOG and version bumps |
+| `package-lock.yml` | Keeps `package-lock.json` in sync after PR merges |
+| `update-deps.yml` | Manual workflow to bump `@diplodoc/*` dependencies |
+
+## Release Process {#release-process}
+
+The package uses [release-please](https://github.com/googleapis/release-please) for automated releases:
+
+1. Make conventional commits (e.g., `feat: add feature`, `fix: bug fix`)
+2. `release-please` automatically creates/updates a release PR
+3. Review and merge the release PR
+4. `release-please` creates a GitHub release
+5. The `release.yml` workflow publishes the package to npm
 
 ## Package Information {#package-info}
 
-- **Package:** `{{ package_template_info.package }}`
-- **Version:** `{{ package_template_info.version }}`
-- **Description:** `{{ package_template_info.description }}`
+Package name: {{ package_template_info.package }}
+Version: {{ package_template_info.version }}
 
-### Exports
+Example API exports:
 
-{% for export in package_template_info.exports %}
-- `{{ export }}`
+{% for export_name in package_template_info.exports %}
+- `{{ export_name }}`
 {% endfor %}
 
-### Scripts
+Scaffolding-managed config files:
 
-{% for script in package_template_info.scripts %}
-- `{{ script.name }}` — {{ script.description }}
+{% for config_file in package_template_info.config_files %}
+- `{{ config_file }}`
 {% endfor %}
 
-{% note info "Do not edit scaffolding files" %}
-Files managed by `@diplodoc/infra` (`.eslintrc.js`, `.prettierrc.js`, workflows, husky hooks) are overwritten by the distribution pipeline. Use `.infrarc.yml` for local exclusions.
+{% note info "Template Substitution" %}
+
+The `sonar-project.properties` file contains a not_var{{PACKAGE_NAME}} placeholder that is substituted from `package.json` during scaffolding copy via `@diplodoc/infra init`.
+
 {% endnote %}
 
 ## TOC Navigation {#toc-navigation}
 
-This page is registered under **Syntax** in the sidebar table of contents.
+This page is registered under the Syntax section of the table of contents.
