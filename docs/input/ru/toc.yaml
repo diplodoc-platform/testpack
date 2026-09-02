@@ -89,6 +89,8 @@ items:
         href: syntax/folding-test.md
       - name: Quote Link Extension
         href: syntax/quote-link.md
+      - name: Package Template
+        href: syntax/package-template.md
   - name: Search
     items:
       - name: Обзор
