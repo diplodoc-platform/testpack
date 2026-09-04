@@ -19,13 +19,7 @@ const CONTENT = {
         '--search-provider',
         '--search-api',
     ],
-    DEPENDENCIES: [
-        '@diplodoc/search-extension',
-        'algoliasearch',
-        'cheerio',
-        'lodash',
-        'ts-dedent',
-    ],
+    DEPENDENCIES: ['@diplodoc/search-extension', 'algoliasearch', 'cheerio', 'lodash', 'ts-dedent'],
     H2_OVERVIEW: 'Overview',
     H2_CONFIGURATION: 'Configuration',
     H2_USAGE: 'Usage',
@@ -122,7 +116,9 @@ test.describe('Algolia', () => {
             await expect(body).toContainText(CONTENT.ALGOLIA_DESCRIPTION);
         });
 
-        test('should not leave unresolved algolia_info variable markers in output', async ({page}) => {
+        test('should not leave unresolved algolia_info variable markers in output', async ({
+            page,
+        }) => {
             const body = page.locator('.dc-doc-page__body');
 
             await expect(body).not.toContainText('{{ algolia_info');
@@ -220,7 +216,9 @@ test.describe('Algolia', () => {
 
         test('should render bash code block with CLI command', async ({page}) => {
             const body = page.locator('.dc-doc-page__body');
-            const codeBlock = body.locator('pre code').filter({hasText: '@diplodoc/algolia-extension'});
+            const codeBlock = body
+                .locator('pre code')
+                .filter({hasText: '@diplodoc/algolia-extension'});
 
             await expect(codeBlock.first()).toBeVisible();
             await expect(codeBlock.first()).toContainText('@diplodoc/cli');

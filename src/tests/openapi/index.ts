@@ -210,7 +210,8 @@ test.describe('OpenAPI Sandbox', () => {
             for (let i = 0; i < count; i++) {
                 const hasDirectText = await blocks.nth(i).evaluate((el) => {
                     return Array.from(el.childNodes).some(
-                        (node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim() !== '',
+                        (node) =>
+                            node.nodeType === Node.TEXT_NODE && node.textContent!.trim() !== '',
                     );
                 });
                 expect(hasDirectText).toBe(false);

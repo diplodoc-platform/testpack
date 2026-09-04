@@ -386,7 +386,11 @@ test.describe('Quote Link Extension', () => {
         });
 
         test('should mention data-quotelink attribute in overview', async ({page}) => {
-            const overview = page.locator('h2').filter({hasText: 'Overview'}).locator('~ p').first();
+            const overview = page
+                .locator('h2')
+                .filter({hasText: 'Overview'})
+                .locator('~ p')
+                .first();
 
             await expect(overview).toContainText('data-quotelink');
         });

@@ -8,7 +8,8 @@ const selectors = {
 
 const CONTENT = {
     PAGE_TITLE: 'Cut Extension',
-    DESCRIPTION: 'Testpack fixture exercising the @diplodoc/cut-extension plugin rendering and documentation.',
+    DESCRIPTION:
+        'Testpack fixture exercising the @diplodoc/cut-extension plugin rendering and documentation.',
     STAGE: 'preview',
     STAGE_UPPER: 'PREVIEW',
     TAGS: ['cut', 'collapsible', 'details', 'extension'],
@@ -406,17 +407,13 @@ test.describe('Cut Extension', () => {
 
     test.describe('Note directive', () => {
         test('should render a note block with Grouped cuts title', async ({page}) => {
-            const note = page
-                .locator('.yfm-note')
-                .filter({hasText: CONTENT.GROUPED_NOTE});
+            const note = page.locator('.yfm-note').filter({hasText: CONTENT.GROUPED_NOTE});
 
             await expect(note).toBeVisible();
         });
 
         test('should mention mutually exclusive expansion in note', async ({page}) => {
-            const note = page
-                .locator('.yfm-note')
-                .filter({hasText: CONTENT.GROUPED_NOTE});
+            const note = page.locator('.yfm-note').filter({hasText: CONTENT.GROUPED_NOTE});
 
             await expect(note).toContainText('collapse');
         });
@@ -433,7 +430,9 @@ test.describe('Cut Extension', () => {
             const cut = page.locator('details.yfm-cut').filter({hasText: CONTENT.LIVE_BASIC_TITLE});
 
             await expect(cut).toBeVisible();
-            await expect(cut.locator('summary.yfm-cut-title')).toContainText(CONTENT.LIVE_BASIC_TITLE);
+            await expect(cut.locator('summary.yfm-cut-title')).toContainText(
+                CONTENT.LIVE_BASIC_TITLE,
+            );
         });
 
         test('should hide basic cut content by default', async ({page}) => {
@@ -484,17 +483,13 @@ test.describe('Cut Extension', () => {
 
     test.describe('TOC navigation', () => {
         test('should render sidebar navigation with Cut Extension link', async ({page}) => {
-            const navLink = page
-                .locator(selectors.tocLink)
-                .filter({hasText: 'Cut Extension'});
+            const navLink = page.locator(selectors.tocLink).filter({hasText: 'Cut Extension'});
 
             await expect(navLink).toBeVisible();
         });
 
         test('should have an href pointing to the cut-extension page', async ({page}) => {
-            const navLink = page
-                .locator(selectors.tocLink)
-                .filter({hasText: 'Cut Extension'});
+            const navLink = page.locator(selectors.tocLink).filter({hasText: 'Cut Extension'});
 
             const href = await navLink.first().getAttribute('href');
             expect(href).toBeTruthy();

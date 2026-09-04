@@ -225,7 +225,8 @@ test.describe('Components', () => {
             const childSections = page.locator('.dc-mini-toc__section_child');
 
             const expectedChildren = MINI_TOC_SECTIONS.filter(
-                (s) => s === CONTENT.H3_LAYOUT_STRUCTURE ||
+                (s) =>
+                    s === CONTENT.H3_LAYOUT_STRUCTURE ||
                     s === CONTENT.H3_SUBSECTION_ALPHA ||
                     s === CONTENT.H3_SUBSECTION_BETA ||
                     s === CONTENT.H3_SUBSECTION_GAMMA ||
@@ -252,7 +253,9 @@ test.describe('Components', () => {
             await targetLink.click();
 
             const targetSection = page.locator('.dc-mini-toc__section', {
-                has: page.locator('.dc-mini-toc__section-link', {hasText: CONTENT.H2_CONTENT_RENDERING}),
+                has: page.locator('.dc-mini-toc__section-link', {
+                    hasText: CONTENT.H2_CONTENT_RENDERING,
+                }),
             });
 
             await expect(targetSection).toHaveClass(/dc-mini-toc__section_active/);
@@ -348,7 +351,9 @@ test.describe('Components', () => {
 
             await expect(body.locator('strong')).toContainText(CONTENT.BOLD_TEXT);
             await expect(body.locator('em')).toContainText(CONTENT.ITALIC_TEXT);
-            await expect(body.locator('code.yfm-clipboard-inline-code', {hasText: CONTENT.INLINE_CODE})).toHaveCount(1);
+            await expect(
+                body.locator('code.yfm-clipboard-inline-code', {hasText: CONTENT.INLINE_CODE}),
+            ).toHaveCount(1);
         });
 
         test('should render unordered list in body', async ({page}) => {
@@ -380,7 +385,9 @@ test.describe('Components', () => {
             await expect(table).toBeVisible();
             await expect(table.locator('th')).toHaveCount(3);
             await expect(table.locator('th').first()).toContainText(CONTENT.TABLE_HEADER_COMPONENT);
-            await expect(table.locator('th').nth(1)).toContainText(CONTENT.TABLE_HEADER_BLOCK_CLASS);
+            await expect(table.locator('th').nth(1)).toContainText(
+                CONTENT.TABLE_HEADER_BLOCK_CLASS,
+            );
         });
 
         test('should have heading anchor links', async ({page}) => {

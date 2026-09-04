@@ -8,8 +8,7 @@ const CONTENT = {
     TAGS: ['package-template', 'scaffolding', 'template', 'devops', 'starter'],
     TEMPLATE_PACKAGE: '@diplodoc/package-template',
     TEMPLATE_VERSION: '2.0.1',
-    TEMPLATE_DESCRIPTION:
-        'Template package for creating new packages on the Diplodoc platform',
+    TEMPLATE_DESCRIPTION: 'Template package for creating new packages on the Diplodoc platform',
     EXPORTS: ['example', 'greet'],
     CONFIG_FILES: [
         '.eslintrc.js',
@@ -67,10 +66,7 @@ test.describe('Package Template', () => {
         test('should render meta description tag in HTML head', async ({page}) => {
             const metaDescription = page.locator('meta[name="description"]');
 
-            await expect(metaDescription).toHaveAttribute(
-                'content',
-                CONTENT.PAGE_DESCRIPTION,
-            );
+            await expect(metaDescription).toHaveAttribute('content', CONTENT.PAGE_DESCRIPTION);
         });
     });
 
@@ -133,7 +129,9 @@ test.describe('Package Template', () => {
             await expect(body).toContainText(CONTENT.TEMPLATE_DESCRIPTION);
         });
 
-        test('should not leave unresolved package_template_info variable markers in output', async ({page}) => {
+        test('should not leave unresolved package_template_info variable markers in output', async ({
+            page,
+        }) => {
             const body = page.locator('.dc-doc-page__body');
 
             await expect(body).not.toContainText('{{ package_template_info');
@@ -169,8 +167,10 @@ test.describe('Package Template', () => {
                 .first();
 
             await expect(codeBlock).toBeVisible();
-            await expect(codeBlock).toContainText("import {example} from '@diplodoc/package-template'");
-            await expect(codeBlock).toContainText("example()");
+            await expect(codeBlock).toContainText(
+                "import {example} from '@diplodoc/package-template'",
+            );
+            await expect(codeBlock).toContainText('example()');
         });
 
         test('should render typescript code block for greet function', async ({page}) => {
@@ -179,7 +179,9 @@ test.describe('Package Template', () => {
                 .first();
 
             await expect(codeBlock).toBeVisible();
-            await expect(codeBlock).toContainText("import {greet} from '@diplodoc/package-template'");
+            await expect(codeBlock).toContainText(
+                "import {greet} from '@diplodoc/package-template'",
+            );
             await expect(codeBlock).toContainText("greet('Alice')");
         });
     });

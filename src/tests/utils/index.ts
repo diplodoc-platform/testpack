@@ -253,7 +253,9 @@ test.describe('Utils features', () => {
 
             await expect(dataRows).toHaveCount(2);
             await expect(dataRows.nth(0).locator('td p').nth(0)).toContainText(CONTENT.ROW_ALICE);
-            await expect(dataRows.nth(0).locator('td p').nth(1)).toContainText(CONTENT.ROW_ALICE_VAL);
+            await expect(dataRows.nth(0).locator('td p').nth(1)).toContainText(
+                CONTENT.ROW_ALICE_VAL,
+            );
             await expect(dataRows.nth(1).locator('td p').nth(0)).toContainText(CONTENT.ROW_BOB);
             await expect(dataRows.nth(1).locator('td p').nth(1)).toContainText(CONTENT.ROW_BOB_VAL);
         });
@@ -290,17 +292,13 @@ test.describe('Utils features', () => {
 
     test.describe('TOC navigation', () => {
         test('should render sidebar navigation with Utils link', async ({page}) => {
-            const navLink = page
-                .locator(selectors.tocLink)
-                .filter({hasText: 'Utils'});
+            const navLink = page.locator(selectors.tocLink).filter({hasText: 'Utils'});
 
             await expect(navLink).toBeVisible();
         });
 
         test('should navigate to Utils page via sidebar link', async ({page}) => {
-            const navLink = page
-                .locator(selectors.tocLink)
-                .filter({hasText: 'Utils'});
+            const navLink = page.locator(selectors.tocLink).filter({hasText: 'Utils'});
 
             const href = await navLink.first().getAttribute('href');
             expect(href).toBeTruthy();

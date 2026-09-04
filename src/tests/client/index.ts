@@ -172,8 +172,7 @@ test.describe('Client', () => {
         });
 
         test('should navigate to another page via sidebar link', async ({page}) => {
-            const tabsLink = page
-                .locator('.dc-toc__list-item a', {hasText: 'Tabs'});
+            const tabsLink = page.locator('.dc-toc__list-item a', {hasText: 'Tabs'});
 
             await tabsLink.click();
 
@@ -282,9 +281,7 @@ test.describe('Client', () => {
             await expect(table).toBeVisible();
             await expect(table.locator('th')).toHaveCount(3);
             await expect(table.locator('th').first()).toContainText(CONTENT.TABLE_HEADER_FEATURE);
-            await expect(table.locator('th').nth(1)).toContainText(
-                CONTENT.TABLE_HEADER_COMPONENT,
-            );
+            await expect(table.locator('th').nth(1)).toContainText(CONTENT.TABLE_HEADER_COMPONENT);
             await expect(table.locator('th').nth(2)).toContainText(CONTENT.TABLE_HEADER_CLASS);
         });
 

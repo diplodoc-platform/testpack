@@ -2,7 +2,8 @@ import {expect, test} from '@playwright/test';
 
 const CONTENT = {
     PAGE_TITLE: 'AJV Schemas',
-    PAGE_DESCRIPTION: 'Page exercising frontmatter and preset fields defined by @diplodoc/ajv JSON schemas',
+    PAGE_DESCRIPTION:
+        'Page exercising frontmatter and preset fields defined by @diplodoc/ajv JSON schemas',
     STAGE_LABEL: 'NEW',
     TAGS: ['schemas', 'validation', 'metadata'],
     SCHEMA_PACKAGE: '@diplodoc/ajv',
