@@ -32,3 +32,4 @@ import './folding-headings';
 import './quote-link';
 import './package-template';
 import './verification-profiles';
+import './reproducers';
