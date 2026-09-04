@@ -1,0 +1,160 @@
+name: Downstream Check
+
+# Downstream Check is triggered for core package PRs (transform, components, cli)
+# to verify downstream impact. It checks out the metapackage, replaces the core
+# package submodule with the PR SHA, builds all downstream consumers, and runs
+# semantic + visual comparison of the testpack corpus.
+#
+# This workflow is reusable — called from core package repos via workflow_run
+# or repository_dispatch, or triggered manually with workflow_dispatch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Core package name (transform, components, cli)'
+        required: true
+        type: choice
+        options:
+          - transform
+          - components
+          - cli
+      pr-sha:
+        description: 'PR commit SHA to replace the submodule with'
+        required: false
+        type: string
+      pr-number:
+        description: 'PR number for reporting (optional)'
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      package:
+        description: 'Core package name (transform, components, cli)'
+        required: true
+        type: string
+      pr-sha:
+        description: 'PR commit SHA to replace the submodule with'
+        required: false
+        type: string
+      pr-number:
+        description: 'PR number for reporting (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  downstream-check:
+    name: Downstream Check (${{ inputs.package }})
+    runs-on: ubuntu-24.04
+    container:
+      image: node:24-bookworm-slim
+      env:
+        CI: 'true'
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    steps:
+      - name: Checkout metapackage (with submodules)
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve SHAs
+        id: shas
+        run: |
+          BASE_SHA=$(git rev-parse HEAD)
+          echo "base-sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ inputs.pr-sha }}" ]; then
+            echo "head-sha=${{ inputs.pr-sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "head-sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build corpus (base SHA — expected)
+        run: |
+          cd devops/testpack
+          npm ci
+          npm run docs
+          cp -r docs/output ${{ github.workspace }}/artifacts/expected/output
+
+      - name: Replace submodule with PR SHA
+        if: inputs.pr-sha != ''
+        run: |
+          PACKAGE="${{ inputs.package }}"
+          case "${PACKAGE}" in
+            transform) SUBMODULE="packages/transform" ;;
+            components) SUBMODULE="packages/components" ;;
+            cli) SUBMODULE="packages/cli" ;;
+            *) echo "Unknown package: ${PACKAGE}"; exit 1 ;;
+          esac
+          cd "${SUBMODULE}"
+          git fetch origin
+          git checkout "${{ inputs.pr-sha }}"
+          cd ${{ github.workspace }}
+
+      - name: Rebuild metapackage dependencies
+        run: |
+          npm ci
+          npm run build --workspaces
+
+      - name: Run downstream check
+        id: downstream
+        continue-on-error: true
+        run: |
+          node devops/testpack/scripts/downstream-check.js \
+            --package "${{ inputs.package }}" \
+            --pr-sha "${{ inputs.pr-sha }}" \
+            --expected artifacts/expected/output/ \
+            --actual devops/testpack/docs/output/ \
+            --output artifacts/downstream/ \
+            --report artifacts/downstream-report.md
+
+      - name: Upload downstream check artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: downstream-check-${{ inputs.package }}
+          path: |
+            artifacts/downstream/
+            artifacts/downstream-report.md
+            artifacts/expected/
+          retention-days: 30
+
+      - name: Post downstream check report as PR comment
+        if: always() && inputs.pr-number != '' && steps.downstream.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f artifacts/downstream-report.md ]; then
+            {
+              echo "## Downstream Check — ${{ inputs.package }} — FAILED"
+              echo ""
+              cat artifacts/downstream-report.md
+              echo ""
+              echo "### CODEOWNER Review Required"
+              echo "Downstream check failures require human CODEOWNER review."
+              echo "Download the **downstream-check-${{ inputs.package }}** artifacts for details."
+            } | gh pr comment ${{ inputs.pr-number }} --body-file -
+          fi
+
+      - name: Add downstream-check-failed label
+        if: always() && inputs.pr-number != '' && steps.downstream.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ inputs.pr-number }} \
+            --add-label "downstream-check-failed" || true
+
+      - name: Fail if downstream check failed
+        if: steps.downstream.outcome == 'failure'
+        run: exit 1
