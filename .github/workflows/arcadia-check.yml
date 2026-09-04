@@ -1,0 +1,119 @@
+name: Arcadia External Check
+
+# Arcadia External Check is triggered for Diplodoc package PRs (transform,
+# components, cli) to verify the external impact on consumers in the Arcadia
+# monorego — the Yandex internal VCS that consumes Diplodoc packages as
+# contrib libraries.
+#
+# When the `arc` CLI is not available (e.g. on public CI), the workflow
+# runs in dry-run mode: it validates the package mapping and consumer list
+# without performing any VCS or build operations.
+#
+# This workflow is reusable — called from core package repos via workflow_call
+# or triggered manually with workflow_dispatch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package name (transform, components, cli)'
+        required: true
+        type: choice
+        options:
+          - transform
+          - components
+          - cli
+      pr-sha:
+        description: 'PR commit SHA (for tracking)'
+        required: false
+        type: string
+      pr-number:
+        description: 'PR number for reporting (optional)'
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      package:
+        description: 'Package name (transform, components, cli)'
+        required: true
+        type: string
+      pr-sha:
+        description: 'PR commit SHA (for tracking)'
+        required: false
+        type: string
+      pr-number:
+        description: 'PR number for reporting (optional)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  arcadia-check:
+    name: Arcadia External Check (${{ inputs.package }})
+    runs-on: ubuntu-24.04
+    container:
+      image: node:24-bookworm-slim
+      env:
+        CI: 'true'
+    steps:
+      - name: Checkout testpack submodule
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 1
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: devops/testpack
+
+      - name: Run Arcadia external check (dry-run)
+        id: arcadia
+        continue-on-error: true
+        run: |
+          node devops/testpack/scripts/arcadia-check.js \
+            --package "${{ inputs.package }}" \
+            --dry-run \
+            --output artifacts/arcadia/ \
+            --report artifacts/arcadia-report.md
+        working-directory: ${{ github.workspace }}
+
+      - name: Upload Arcadia check artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcadia-check-${{ inputs.package }}
+          path: |
+            artifacts/arcadia/
+            artifacts/arcadia-report.md
+          retention-days: 30
+
+      - name: Post Arcadia check report as PR comment
+        if: always() && inputs.pr-number != '' && steps.arcadia.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f artifacts/arcadia-report.md ]; then
+            {
+              echo "## Arcadia External Check — ${{ inputs.package }} — FAILED"
+              echo ""
+              cat artifacts/arcadia-report.md
+              echo ""
+              echo "### CODEOWNER Review Required"
+              echo "Arcadia external check failures require human CODEOWNER review."
+              echo "Download the **arcadia-check-${{ inputs.package }}** artifacts for details."
+            } | gh pr comment ${{ inputs.pr-number }} --body-file -
+          fi
+
+      - name: Add arcadia-check-failed label
+        if: always() && inputs.pr-number != '' && steps.arcadia.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ inputs.pr-number }} \
+            --add-label "arcadia-check-failed" || true
+
+      - name: Fail if Arcadia check failed
+        if: steps.arcadia.outcome == 'failure'
+        run: exit 1
