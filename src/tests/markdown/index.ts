@@ -67,7 +67,9 @@ test.describe('Markdown rendering (CLI)', () => {
             await expect(alertContent).toContainText(CONTENT.NOTE_ALERT);
         });
 
-        test('should render note title with auto-generated title when not specified', async ({page}) => {
+        test('should render note title with auto-generated title when not specified', async ({
+            page,
+        }) => {
             const infoTitle = page.locator(selectors.noteInfo).locator(selectors.noteTitle);
             await expect(infoTitle).toBeVisible();
             await expect(infoTitle).not.toBeEmpty();
@@ -110,17 +112,13 @@ test.describe('Markdown rendering (CLI)', () => {
             const firstCode = page.locator(selectors.codeFloatingContainer).first();
             const highlight = firstCode.locator(selectors.codeHighlight);
             await expect(highlight).toBeVisible();
-            await expect(firstCode.locator(selectors.codeBlock)).toContainText(
-                CONTENT.JS_GREETING,
-            );
+            await expect(firstCode.locator(selectors.codeBlock)).toContainText(CONTENT.JS_GREETING);
         });
 
         test('should render plain code block without language', async ({page}) => {
             const codeBlocks = page.locator(selectors.codeFloatingContainer);
             const plainCode = codeBlocks.nth(1);
-            await expect(plainCode.locator(selectors.codeBlock)).toContainText(
-                CONTENT.PLAIN_CODE,
-            );
+            await expect(plainCode.locator(selectors.codeBlock)).toContainText(CONTENT.PLAIN_CODE);
         });
     });
 
@@ -168,7 +166,9 @@ test.describe('Markdown rendering (CLI)', () => {
 
     test.describe('Links', () => {
         test('should render internal anchor link', async ({page}) => {
-            const internalLink = page.locator('a[href*="#notes"]').filter({hasText: 'link to notes'});
+            const internalLink = page
+                .locator('a[href*="#notes"]')
+                .filter({hasText: 'link to notes'});
 
             await expect(internalLink).toBeVisible();
             await expect(internalLink).toHaveAttribute('href', /#notes$/);

@@ -98,10 +98,7 @@ test.describe('VSC Extension', () => {
         test('should render meta description tag in HTML head', async ({page}) => {
             const metaDescription = page.locator('meta[name="description"]');
 
-            await expect(metaDescription).toHaveAttribute(
-                'content',
-                CONTENT.PAGE_DESCRIPTION,
-            );
+            await expect(metaDescription).toHaveAttribute('content', CONTENT.PAGE_DESCRIPTION);
         });
     });
 
@@ -134,9 +131,7 @@ test.describe('VSC Extension', () => {
             await expect(tagElements).toHaveCount(CONTENT.TAGS.length);
 
             for (const tag of CONTENT.TAGS) {
-                await expect(
-                    tagElements.filter({hasText: new RegExp(`^${tag}$`)}),
-                ).toHaveCount(1);
+                await expect(tagElements.filter({hasText: new RegExp(`^${tag}$`)})).toHaveCount(1);
             }
         });
     });

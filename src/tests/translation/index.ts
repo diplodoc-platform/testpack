@@ -3,7 +3,8 @@ import {expect, test} from '@playwright/test';
 const CONTENT = {
     PAGE_TITLE: '@diplodoc/translation',
     FRONTMATTER_DESCRIPTION: 'Markdown translation utilities for Diplodoc',
-    PRESET_DESCRIPTION: 'Markdown translation utilities — XLIFF extraction, skeleton generation, and composition',
+    PRESET_DESCRIPTION:
+        'Markdown translation utilities — XLIFF extraction, skeleton generation, and composition',
     STAGE: 'new',
     TAGS: ['translation', 'xliff', 'localization', 'skeleton', 'markdown'],
 } as const;
@@ -441,7 +442,9 @@ test.describe('Translation', () => {
         });
 
         test('should render complete workflow TypeScript code block', async ({page}) => {
-            const codeBlock = page.locator('#complete-extract-and-compose-workflow + div pre code').first();
+            const codeBlock = page
+                .locator('#complete-extract-and-compose-workflow + div pre code')
+                .first();
             await expect(codeBlock).toBeVisible();
             await expect(codeBlock).toContainText('extract');
             await expect(codeBlock).toContainText('compose');

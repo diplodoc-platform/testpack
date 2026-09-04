@@ -1,6 +1,5 @@
 import {readFileSync} from 'fs';
 import {resolve} from 'path';
-
 import {expect, test} from '@playwright/test';
 
 const cssContent = readFileSync(
@@ -134,7 +133,9 @@ test.describe('Folding Headings', () => {
                 .locator(`> ${HEADING_SECTION_CONTENT}`);
 
             await expect(content).toHaveCount(1);
-            await expect(content.locator('> p').first()).toContainText('Content under the folding heading');
+            await expect(content.locator('> p').first()).toContainText(
+                'Content under the folding heading',
+            );
         });
     });
 
@@ -144,10 +145,14 @@ test.describe('Folding Headings', () => {
 
             await expect(plainHeading).toHaveCount(1);
 
-            const parentSection = plainHeading.locator('xpath=ancestor::section[@class="heading-section"]');
+            const parentSection = plainHeading.locator(
+                'xpath=ancestor::section[@class="heading-section"]',
+            );
             await expect(parentSection).toHaveCount(1);
 
-            const directParent = plainHeading.locator('xpath=./parent::section[@class="heading-section"]');
+            const directParent = plainHeading.locator(
+                'xpath=./parent::section[@class="heading-section"]',
+            );
             await expect(directParent).toHaveCount(0);
         });
 
@@ -156,7 +161,9 @@ test.describe('Folding Headings', () => {
 
             await expect(plainH1).toHaveCount(1);
 
-            const directParent = plainH1.locator('xpath=./parent::section[@class="heading-section"]');
+            const directParent = plainH1.locator(
+                'xpath=./parent::section[@class="heading-section"]',
+            );
             await expect(directParent).toHaveCount(0);
         });
 
@@ -164,7 +171,9 @@ test.describe('Folding Headings', () => {
             const section = page.locator('h2#non-folding-headings-render-normally');
             await expect(section).toHaveCount(1);
 
-            const directParent = section.locator('xpath=./parent::section[@class="heading-section"]');
+            const directParent = section.locator(
+                'xpath=./parent::section[@class="heading-section"]',
+            );
             await expect(directParent).toHaveCount(0);
 
             const regularH1 = page.locator('h1').filter({hasText: 'Regular H1'});
@@ -208,7 +217,9 @@ test.describe('Folding Headings', () => {
                 .locator(HEADING_SECTION)
                 .filter({hasText: CONTENT.H1_FOLDING})
                 .first();
-            const h2Section = h1Section.locator(HEADING_SECTION).filter({hasText: CONTENT.H2_FOLDING});
+            const h2Section = h1Section
+                .locator(HEADING_SECTION)
+                .filter({hasText: CONTENT.H2_FOLDING});
 
             await expect(h2Section).toHaveCount(1);
             const heading = h2Section.locator('> h2');
@@ -216,8 +227,12 @@ test.describe('Folding Headings', () => {
         });
 
         test('should create section for H3 folding heading inside H2 section', async ({page}) => {
-            const h2Section = page.locator(`#h2-folding`).locator(`xpath=./ancestor::section[@class="heading-section"][1]`);
-            const h3Section = h2Section.locator(HEADING_SECTION).filter({hasText: CONTENT.H3_FOLDING});
+            const h2Section = page
+                .locator(`#h2-folding`)
+                .locator(`xpath=./ancestor::section[@class="heading-section"][1]`);
+            const h3Section = h2Section
+                .locator(HEADING_SECTION)
+                .filter({hasText: CONTENT.H3_FOLDING});
 
             await expect(h3Section).toHaveCount(1);
             const heading = h3Section.locator('> h3');
@@ -256,7 +271,9 @@ test.describe('Folding Headings', () => {
             await expect(outer).toHaveCount(1);
 
             const innerContent = outer.locator(`> ${HEADING_SECTION_CONTENT}`);
-            const innerSection = innerContent.locator(HEADING_SECTION).filter({hasText: CONTENT.NESTED_H2});
+            const innerSection = innerContent
+                .locator(HEADING_SECTION)
+                .filter({hasText: CONTENT.NESTED_H2});
 
             await expect(innerSection).toHaveCount(1);
         });
@@ -310,9 +327,9 @@ test.describe('Folding Headings', () => {
                 .filter({hasText: CONTENT.SECOND_SIBLING})
                 .first();
 
-            const secondInsideFirst = firstSection.locator(
-                `> ${HEADING_SECTION_CONTENT} ${HEADING_SECTION}`,
-            ).filter({hasText: CONTENT.SECOND_SIBLING});
+            const secondInsideFirst = firstSection
+                .locator(`> ${HEADING_SECTION_CONTENT} ${HEADING_SECTION}`)
+                .filter({hasText: CONTENT.SECOND_SIBLING});
 
             await expect(secondInsideFirst).toHaveCount(0);
             await expect(secondSection).toHaveCount(1);
@@ -461,7 +478,10 @@ test.describe('Folding Headings', () => {
                 .filter({hasText: CONTENT.NESTED_H1})
                 .first();
 
-            const inner = outer.locator(HEADING_SECTION).filter({hasText: CONTENT.NESTED_H2}).first();
+            const inner = outer
+                .locator(HEADING_SECTION)
+                .filter({hasText: CONTENT.NESTED_H2})
+                .first();
 
             const outerHeading = outer.locator('> h1');
             const innerHeading = inner.locator('> h2');
@@ -559,13 +579,13 @@ test.describe('Folding Headings', () => {
             expect(ids.size).toBe(count);
         });
 
-        test('should not have heading-section-content outside a heading-section', async ({page}) => {
+        test('should not have heading-section-content outside a heading-section', async ({
+            page,
+        }) => {
             const allContent = page.locator(HEADING_SECTION_CONTENT);
             const total = await allContent.count();
 
-            const insideSection = page.locator(
-                `${HEADING_SECTION} > ${HEADING_SECTION_CONTENT}`,
-            );
+            const insideSection = page.locator(`${HEADING_SECTION} > ${HEADING_SECTION_CONTENT}`);
             const inside = await insideSection.count();
 
             expect(total).toBe(inside);

@@ -170,9 +170,7 @@ test.describe('Directive', () => {
         });
 
         test('should render container block code example', async ({page}) => {
-            const codeBlock = page
-                .locator('pre code')
-                .filter({hasText: ':::name'});
+            const codeBlock = page.locator('pre code').filter({hasText: ':::name'});
 
             await expect(codeBlock).toBeVisible();
         });
@@ -247,10 +245,7 @@ test.describe('Directive', () => {
 
         test('should render TypeScript code block with directiveParser import', async ({page}) => {
             const body = page.locator('.dc-doc-page__body');
-            const codeBlock = body
-                .locator('pre code')
-                .filter({hasText: 'directiveParser'})
-                .first();
+            const codeBlock = body.locator('pre code').filter({hasText: 'directiveParser'}).first();
 
             await expect(codeBlock).toBeVisible();
         });

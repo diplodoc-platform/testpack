@@ -22,7 +22,10 @@ test.describe('HTML Extension', () => {
 
         test('should render frontmatter description in meta tag', async ({page}) => {
             const meta = page.locator('meta[name="description"]');
-            await expect(meta).toHaveAttribute('content', new RegExp(CONTENT.FRONTMATTER_DESCRIPTION, 'i'));
+            await expect(meta).toHaveAttribute(
+                'content',
+                new RegExp(CONTENT.FRONTMATTER_DESCRIPTION, 'i'),
+            );
         });
 
         test('should render stage badge', async ({page}) => {
@@ -239,7 +242,9 @@ test.describe('HTML Extension', () => {
         test('should document data-yfm-sandbox-content attribute', async ({page}) => {
             const section = page.locator('#data-attributes');
             const table = section.locator('~ table').first();
-            await expect(table.locator('tbody tr').nth(1)).toContainText('data-yfm-sandbox-content');
+            await expect(table.locator('tbody tr').nth(1)).toContainText(
+                'data-yfm-sandbox-content',
+            );
         });
 
         test('should document data-yfm-embed-id attribute', async ({page}) => {
@@ -325,7 +330,9 @@ test.describe('HTML Extension', () => {
         test('should document React hooks export', async ({page}) => {
             const section = page.locator('#api-exports');
             const table = section.locator('~ table').first();
-            const reactRow = table.locator('tbody tr').filter({hasText: 'useDiplodocEmbeddedContent'});
+            const reactRow = table
+                .locator('tbody tr')
+                .filter({hasText: 'useDiplodocEmbeddedContent'});
             await expect(reactRow).toHaveCount(1);
         });
     });
@@ -352,20 +359,26 @@ test.describe('HTML Extension', () => {
         });
 
         test('should render extended CSS whitelist table', async ({page}) => {
-            const table = page.locator('#extended-css-whitelist + table, #extended-css-whitelist ~ table').first();
+            const table = page
+                .locator('#extended-css-whitelist + table, #extended-css-whitelist ~ table')
+                .first();
             await expect(table).toBeVisible();
             const rows = table.locator('tbody tr');
             await expect(rows).toHaveCount(5);
         });
 
         test('should document Flexbox CSS properties', async ({page}) => {
-            const table = page.locator('#extended-css-whitelist + table, #extended-css-whitelist ~ table').first();
+            const table = page
+                .locator('#extended-css-whitelist + table, #extended-css-whitelist ~ table')
+                .first();
             await expect(table.locator('tbody tr').first()).toContainText('Flexbox');
             await expect(table.locator('tbody tr').first()).toContainText('flex');
         });
 
         test('should document Grid CSS properties', async ({page}) => {
-            const table = page.locator('#extended-css-whitelist + table, #extended-css-whitelist ~ table').first();
+            const table = page
+                .locator('#extended-css-whitelist + table, #extended-css-whitelist ~ table')
+                .first();
             await expect(table.locator('tbody tr').nth(1)).toContainText('Grid');
         });
     });
@@ -402,7 +415,9 @@ test.describe('HTML Extension', () => {
         test('should document EmbeddedIFrameController', async ({page}) => {
             const section = page.locator('#runtime');
             const table = section.locator('~ table').first();
-            await expect(table.locator('tbody tr').nth(2)).toContainText('EmbeddedIFrameController');
+            await expect(table.locator('tbody tr').nth(2)).toContainText(
+                'EmbeddedIFrameController',
+            );
             await expect(table.locator('tbody tr').nth(2)).toContainText('isolated');
         });
 

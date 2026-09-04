@@ -267,7 +267,15 @@ test.describe('Mermaid', () => {
         });
 
         test('should render SVGs for both diagrams', async ({page}) => {
-            const svgs = page.locator('#multiple + ' + selectors.mermaidDiv + ' > svg, #multiple + ' + selectors.mermaidDiv + ' ~ ' + selectors.mermaidDiv + ' > svg');
+            const svgs = page.locator(
+                '#multiple + ' +
+                    selectors.mermaidDiv +
+                    ' > svg, #multiple + ' +
+                    selectors.mermaidDiv +
+                    ' ~ ' +
+                    selectors.mermaidDiv +
+                    ' > svg',
+            );
 
             await expect(svgs.first()).toBeVisible({timeout: 15000});
         });

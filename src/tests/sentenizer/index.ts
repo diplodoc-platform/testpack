@@ -26,7 +26,7 @@ const CONTENT = {
     PARAMETERS_HEADING: 'Parameters',
     PROJECT_STRUCTURE_HEADING: 'Project Structure',
     DEBUGGING_HEADING: 'Debugging',
-    SENTENIZE_IMPORT: "@diplodoc/sentenizer",
+    SENTENIZE_IMPORT: '@diplodoc/sentenizer',
     SENTENIZE_FN: 'sentenize',
     BREAK_CONDITION_1: 'leftEndsWithHardbreak',
     BREAK_CONDITION_2: 'rightStartsWithHardbreak',
@@ -166,8 +166,7 @@ test.describe('Sentenizer', () => {
 
     test.describe('Package Information', () => {
         test('should render Package Information section heading', async ({page}) => {
-            const heading = page
-                .locator('h2#package-information');
+            const heading = page.locator('h2#package-information');
 
             await expect(heading).toBeVisible();
         });
@@ -282,15 +281,13 @@ test.describe('Sentenizer', () => {
 
     test.describe('Rule Conditions', () => {
         test('should render Rule Conditions section heading', async ({page}) => {
-            const heading = page
-                .locator('h2#rule-conditions');
+            const heading = page.locator('h2#rule-conditions');
 
             await expect(heading).toBeVisible();
         });
 
         test('should render Break conditions subsection heading', async ({page}) => {
-            const heading = page
-                .locator('h3#break-conditions');
+            const heading = page.locator('h3#break-conditions');
 
             await expect(heading).toBeVisible();
         });
@@ -305,8 +302,7 @@ test.describe('Sentenizer', () => {
         });
 
         test('should render Join conditions subsection heading', async ({page}) => {
-            const heading = page
-                .locator('h3#join-conditions');
+            const heading = page.locator('h3#join-conditions');
 
             await expect(heading).toBeVisible();
         });
@@ -389,17 +385,13 @@ test.describe('Sentenizer', () => {
 
     test.describe('Note directive', () => {
         test('should render a note block with Primary use case title', async ({page}) => {
-            const note = page
-                .locator('.yfm-note')
-                .filter({hasText: 'Primary use case'});
+            const note = page.locator('.yfm-note').filter({hasText: 'Primary use case'});
 
             await expect(note).toBeVisible();
         });
 
         test('should mention translation package in the note', async ({page}) => {
-            const note = page
-                .locator('.yfm-note')
-                .filter({hasText: 'Primary use case'});
+            const note = page.locator('.yfm-note').filter({hasText: 'Primary use case'});
 
             await expect(note).toContainText('@diplodoc/translation');
         });
@@ -407,8 +399,7 @@ test.describe('Sentenizer', () => {
 
     test.describe('Project Structure', () => {
         test('should render Project Structure section heading', async ({page}) => {
-            const heading = page
-                .locator('h2#project-structure');
+            const heading = page.locator('h2#project-structure');
 
             await expect(heading).toBeVisible();
         });
@@ -445,17 +436,13 @@ test.describe('Sentenizer', () => {
 
     test.describe('TOC navigation', () => {
         test('should render sidebar navigation with Sentenizer link', async ({page}) => {
-            const navLink = page
-                .locator(selectors.tocLink)
-                .filter({hasText: 'Sentenizer'});
+            const navLink = page.locator(selectors.tocLink).filter({hasText: 'Sentenizer'});
 
             await expect(navLink).toBeVisible();
         });
 
         test('should have an href pointing to the sentenizer page', async ({page}) => {
-            const navLink = page
-                .locator(selectors.tocLink)
-                .filter({hasText: 'Sentenizer'});
+            const navLink = page.locator(selectors.tocLink).filter({hasText: 'Sentenizer'});
 
             const href = await navLink.first().getAttribute('href');
             expect(href).toBeTruthy();

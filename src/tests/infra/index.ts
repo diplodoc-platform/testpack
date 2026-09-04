@@ -2,14 +2,12 @@ import {expect, test} from '@playwright/test';
 
 const CONTENT = {
     PAGE_TITLE: 'Infra',
-    PAGE_DESCRIPTION:
-        'Documentation for @diplodoc/infra — linting, CI workflows, and scaffolding',
+    PAGE_DESCRIPTION: 'Documentation for @diplodoc/infra — linting, CI workflows, and scaffolding',
     STAGE_LABEL: 'NEW',
     TAGS: ['infra', 'linting', 'scaffolding', 'ci', 'devops'],
     INFRA_PACKAGE: '@diplodoc/infra',
     INFRA_VERSION: '2.2.3',
-    INFRA_DESCRIPTION:
-        'Central infrastructure package for linting, CI workflows, and scaffolding',
+    INFRA_DESCRIPTION: 'Central infrastructure package for linting, CI workflows, and scaffolding',
     BINARIES: ['lint', 'infra'],
     EXPORTS: ['eslint-config', 'prettier-config', 'stylelint-config', 'esbuild'],
     H2_CLI_REFERENCE: 'CLI Reference',
@@ -67,10 +65,7 @@ test.describe('Infra', () => {
         test('should render meta description tag in HTML head', async ({page}) => {
             const metaDescription = page.locator('meta[name="description"]');
 
-            await expect(metaDescription).toHaveAttribute(
-                'content',
-                CONTENT.PAGE_DESCRIPTION,
-            );
+            await expect(metaDescription).toHaveAttribute('content', CONTENT.PAGE_DESCRIPTION);
         });
     });
 
@@ -133,7 +128,9 @@ test.describe('Infra', () => {
             await expect(body).toContainText(CONTENT.INFRA_DESCRIPTION);
         });
 
-        test('should not leave unresolved infra_info variable markers in output', async ({page}) => {
+        test('should not leave unresolved infra_info variable markers in output', async ({
+            page,
+        }) => {
             const body = page.locator('.dc-doc-page__body');
 
             await expect(body).not.toContainText('{{ infra_info');
@@ -260,7 +257,9 @@ test.describe('Infra', () => {
         });
 
         test('should render json code block with subpath exports', async ({page}) => {
-            const codeBlock = page.locator('#exports ~ .yfm-code-floating-container pre code').first();
+            const codeBlock = page
+                .locator('#exports ~ .yfm-code-floating-container pre code')
+                .first();
 
             await expect(codeBlock).toBeVisible();
             await expect(codeBlock).toContainText('prettier-config');
