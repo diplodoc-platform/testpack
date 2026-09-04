@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900" width="1200" height="900">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/>
+    </marker>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#4A90D9;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#357ABD;stop-opacity:1"/>
+    </linearGradient>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#50C878;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#3DA668;stop-opacity:1"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="900" fill="#F5F5F5"/>
+  <text x="600" y="30" text-anchor="middle" font-size="18" font-weight="bold">System Architecture &amp; Data Flow Diagram</text>
+  <rect id="n0_0" x="30" y="70" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="70" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;1</text>
+  <text x="70" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="70" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_1" x="120" y="70" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="160" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;2</text>
+  <text x="160" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="160" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_2" x="210" y="70" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="250" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;3</text>
+  <text x="250" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="250" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_3" x="300" y="70" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="340" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;4</text>
+  <text x="340" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="340" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_4" x="390" y="70" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="430" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;5</text>
+  <text x="430" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="430" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_5" x="480" y="70" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="520" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;6</text>
+  <text x="520" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="520" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_6" x="570" y="70" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="610" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;7</text>
+  <text x="610" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="610" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_7" x="660" y="70" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="700" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;8</text>
+  <text x="700" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="700" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_8" x="750" y="70" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="790" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;9</text>
+  <text x="790" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="790" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_9" x="840" y="70" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="880" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;10</text>
+  <text x="880" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="880" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_10" x="930" y="70" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="970" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;11</text>
+  <text x="970" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="970" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_11" x="1020" y="70" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="1060" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;12</text>
+  <text x="1060" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="1060" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n0_12" x="1110" y="70" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="1150" y="92" text-anchor="middle" font-size="10" fill="white">N&amp;1 &#42; C&amp;13</text>
+  <text x="1150" y="108" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="1150" y="118" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_0" x="30" y="200" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="70" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;1</text>
+  <text x="70" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="70" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_1" x="120" y="200" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="160" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;2</text>
+  <text x="160" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="160" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_2" x="210" y="200" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="250" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;3</text>
+  <text x="250" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="250" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_3" x="300" y="200" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="340" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;4</text>
+  <text x="340" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="340" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_4" x="390" y="200" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="430" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;5</text>
+  <text x="430" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="430" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_5" x="480" y="200" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="520" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;6</text>
+  <text x="520" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="520" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_6" x="570" y="200" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="610" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;7</text>
+  <text x="610" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="610" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_7" x="660" y="200" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="700" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;8</text>
+  <text x="700" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="700" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_8" x="750" y="200" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="790" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;9</text>
+  <text x="790" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="790" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_9" x="840" y="200" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="880" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;10</text>
+  <text x="880" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="880" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_10" x="930" y="200" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="970" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;11</text>
+  <text x="970" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="970" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_11" x="1020" y="200" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="1060" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;12</text>
+  <text x="1060" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="1060" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n1_12" x="1110" y="200" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="1150" y="222" text-anchor="middle" font-size="10" fill="white">N&amp;2 &#42; C&amp;13</text>
+  <text x="1150" y="238" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="1150" y="248" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_0" x="30" y="330" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="70" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;1</text>
+  <text x="70" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="70" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_1" x="120" y="330" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="160" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;2</text>
+  <text x="160" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="160" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_2" x="210" y="330" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="250" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;3</text>
+  <text x="250" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="250" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_3" x="300" y="330" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="340" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;4</text>
+  <text x="340" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="340" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_4" x="390" y="330" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="430" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;5</text>
+  <text x="430" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="430" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_5" x="480" y="330" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="520" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;6</text>
+  <text x="520" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="520" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_6" x="570" y="330" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="610" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;7</text>
+  <text x="610" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="610" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_7" x="660" y="330" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="700" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;8</text>
+  <text x="700" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="700" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_8" x="750" y="330" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="790" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;9</text>
+  <text x="790" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="790" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_9" x="840" y="330" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="880" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;10</text>
+  <text x="880" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="880" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_10" x="930" y="330" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="970" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;11</text>
+  <text x="970" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="970" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_11" x="1020" y="330" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="1060" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;12</text>
+  <text x="1060" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="1060" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n2_12" x="1110" y="330" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="1150" y="352" text-anchor="middle" font-size="10" fill="white">N&amp;3 &#42; C&amp;13</text>
+  <text x="1150" y="368" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="1150" y="378" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_0" x="30" y="460" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="70" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;1</text>
+  <text x="70" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="70" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_1" x="120" y="460" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="160" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;2</text>
+  <text x="160" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="160" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_2" x="210" y="460" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="250" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;3</text>
+  <text x="250" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="250" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_3" x="300" y="460" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="340" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;4</text>
+  <text x="340" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="340" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_4" x="390" y="460" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="430" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;5</text>
+  <text x="430" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="430" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_5" x="480" y="460" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="520" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;6</text>
+  <text x="520" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="520" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_6" x="570" y="460" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="610" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;7</text>
+  <text x="610" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="610" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_7" x="660" y="460" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="700" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;8</text>
+  <text x="700" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="700" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_8" x="750" y="460" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="790" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;9</text>
+  <text x="790" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="790" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_9" x="840" y="460" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="880" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;10</text>
+  <text x="880" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="880" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_10" x="930" y="460" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="970" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;11</text>
+  <text x="970" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="970" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_11" x="1020" y="460" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="1060" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;12</text>
+  <text x="1060" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="1060" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n3_12" x="1110" y="460" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="1150" y="482" text-anchor="middle" font-size="10" fill="white">N&amp;4 &#42; C&amp;13</text>
+  <text x="1150" y="498" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="1150" y="508" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_0" x="30" y="590" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="70" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;1</text>
+  <text x="70" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="70" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_1" x="120" y="590" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="160" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;2</text>
+  <text x="160" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="160" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_2" x="210" y="590" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="250" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;3</text>
+  <text x="250" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="250" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_3" x="300" y="590" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="340" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;4</text>
+  <text x="340" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="340" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_4" x="390" y="590" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="430" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;5</text>
+  <text x="430" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="430" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_5" x="480" y="590" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="520" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;6</text>
+  <text x="520" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="520" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_6" x="570" y="590" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="610" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;7</text>
+  <text x="610" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="610" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_7" x="660" y="590" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="700" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;8</text>
+  <text x="700" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="700" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_8" x="750" y="590" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="790" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;9</text>
+  <text x="790" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="790" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_9" x="840" y="590" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="880" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;10</text>
+  <text x="880" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="880" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_10" x="930" y="590" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="970" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;11</text>
+  <text x="970" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="970" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_11" x="1020" y="590" width="80" height="50" rx="5" fill="url(#grad2)" stroke="#333" stroke-width="1"/>
+  <text x="1060" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;12</text>
+  <text x="1060" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="1060" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <rect id="n4_12" x="1110" y="590" width="80" height="50" rx="5" fill="url(#grad1)" stroke="#333" stroke-width="1"/>
+  <text x="1150" y="612" text-anchor="middle" font-size="10" fill="white">N&amp;5 &#42; C&amp;13</text>
+  <text x="1150" y="628" text-anchor="middle" font-size="8" fill="#DDD">R&amp;D &amp; Q&amp;A</text>
+  <text x="1150" y="638" text-anchor="middle" font-size="6" fill="#BBB">&amp; &#42;</text>
+  <line x1="110" y1="95" x2="120" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="200" y1="95" x2="210" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="290" y1="95" x2="300" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="380" y1="95" x2="390" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="470" y1="95" x2="480" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="560" y1="95" x2="570" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="650" y1="95" x2="660" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="740" y1="95" x2="750" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="830" y1="95" x2="840" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="920" y1="95" x2="930" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="1010" y1="95" x2="1020" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="1100" y1="95" x2="1110" y2="95" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="110" y1="225" x2="120" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="200" y1="225" x2="210" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="290" y1="225" x2="300" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="380" y1="225" x2="390" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="470" y1="225" x2="480" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="560" y1="225" x2="570" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="650" y1="225" x2="660" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="740" y1="225" x2="750" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="830" y1="225" x2="840" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="920" y1="225" x2="930" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="1010" y1="225" x2="1020" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="1100" y1="225" x2="1110" y2="225" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="110" y1="355" x2="120" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="200" y1="355" x2="210" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="290" y1="355" x2="300" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="380" y1="355" x2="390" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="470" y1="355" x2="480" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="560" y1="355" x2="570" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="650" y1="355" x2="660" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="740" y1="355" x2="750" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="830" y1="355" x2="840" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="920" y1="355" x2="930" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="1010" y1="355" x2="1020" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="1100" y1="355" x2="1110" y2="355" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="110" y1="485" x2="120" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="200" y1="485" x2="210" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="290" y1="485" x2="300" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="380" y1="485" x2="390" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="470" y1="485" x2="480" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="560" y1="485" x2="570" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="650" y1="485" x2="660" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="740" y1="485" x2="750" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="830" y1="485" x2="840" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="920" y1="485" x2="930" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="1010" y1="485" x2="1020" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="1100" y1="485" x2="1110" y2="485" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="110" y1="615" x2="120" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="200" y1="615" x2="210" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="290" y1="615" x2="300" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="380" y1="615" x2="390" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="470" y1="615" x2="480" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="560" y1="615" x2="570" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="650" y1="615" x2="660" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="740" y1="615" x2="750" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="830" y1="615" x2="840" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="920" y1="615" x2="930" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="1010" y1="615" x2="1020" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="1100" y1="615" x2="1110" y2="615" stroke="#666" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="70" y1="120" x2="70" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="75" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="160" y1="120" x2="160" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="165" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="250" y1="120" x2="250" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="255" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="340" y1="120" x2="340" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="345" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="430" y1="120" x2="430" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="435" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="520" y1="120" x2="520" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="525" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="610" y1="120" x2="610" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="615" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="700" y1="120" x2="700" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="705" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="790" y1="120" x2="790" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="795" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="880" y1="120" x2="880" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="885" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="970" y1="120" x2="970" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="975" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="1060" y1="120" x2="1060" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="1065" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="1150" y1="120" x2="1150" y2="200" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="1155" y="160" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="70" y1="250" x2="70" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="75" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="160" y1="250" x2="160" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="165" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="250" y1="250" x2="250" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="255" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="340" y1="250" x2="340" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="345" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="430" y1="250" x2="430" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="435" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="520" y1="250" x2="520" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="525" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="610" y1="250" x2="610" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="615" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="700" y1="250" x2="700" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="705" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="790" y1="250" x2="790" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="795" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="880" y1="250" x2="880" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="885" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="970" y1="250" x2="970" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="975" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="1060" y1="250" x2="1060" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="1065" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="1150" y1="250" x2="1150" y2="330" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="1155" y="290" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="70" y1="380" x2="70" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="75" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="160" y1="380" x2="160" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="165" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="250" y1="380" x2="250" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="255" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="340" y1="380" x2="340" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="345" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="430" y1="380" x2="430" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="435" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="520" y1="380" x2="520" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="525" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="610" y1="380" x2="610" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="615" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="700" y1="380" x2="700" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="705" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="790" y1="380" x2="790" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="795" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="880" y1="380" x2="880" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="885" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="970" y1="380" x2="970" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="975" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="1060" y1="380" x2="1060" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="1065" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="1150" y1="380" x2="1150" y2="460" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="1155" y="420" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="70" y1="510" x2="70" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="75" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="160" y1="510" x2="160" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="165" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="250" y1="510" x2="250" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="255" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="340" y1="510" x2="340" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="345" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="430" y1="510" x2="430" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="435" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="520" y1="510" x2="520" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="525" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="610" y1="510" x2="610" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="615" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="700" y1="510" x2="700" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="705" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="790" y1="510" x2="790" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="795" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="880" y1="510" x2="880" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="885" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="970" y1="510" x2="970" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="975" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="1060" y1="510" x2="1060" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="1065" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <line x1="1150" y1="510" x2="1150" y2="590" stroke="#999" stroke-width="1" marker-end="url(#arrow)"/>
+  <text x="1155" y="550" font-size="7" fill="#888">&amp;rarr;</text>
+  <rect x="900" y="720" width="280" height="100" fill="white" stroke="#CCC" rx="3"/>
+  <text x="910" y="740" font-size="10" font-weight="bold">Legend &amp; Notes &amp; Refs</text>
+  <text x="910" y="750" font-size="6" fill="#666">L&amp;1 &#42; &amp; V&amp;1</text>
+  <text x="910" y="752" font-size="6" fill="#666">L&amp;2 &#42; &amp; V&amp;2</text>
+  <text x="910" y="754" font-size="6" fill="#666">L&amp;3 &#42; &amp; V&amp;3</text>
+  <text x="910" y="756" font-size="6" fill="#666">L&amp;4 &#42; &amp; V&amp;4</text>
+  <text x="910" y="758" font-size="6" fill="#666">L&amp;5 &#42; &amp; V&amp;5</text>
+  <text x="910" y="760" font-size="6" fill="#666">L&amp;6 &#42; &amp; V&amp;6</text>
+  <text x="910" y="762" font-size="6" fill="#666">L&amp;7 &#42; &amp; V&amp;7</text>
+  <text x="910" y="764" font-size="6" fill="#666">L&amp;8 &#42; &amp; V&amp;8</text>
+  <text x="910" y="766" font-size="6" fill="#666">L&amp;9 &#42; &amp; V&amp;9</text>
+  <text x="910" y="768" font-size="6" fill="#666">L&amp;10 &#42; &amp; V&amp;10</text>
+  <text x="910" y="770" font-size="6" fill="#666">L&amp;11 &#42; &amp; V&amp;11</text>
+  <text x="910" y="772" font-size="6" fill="#666">L&amp;12 &#42; &amp; V&amp;12</text>
+  <text x="910" y="774" font-size="6" fill="#666">L&amp;13 &#42; &amp; V&amp;13</text>
+  <text x="910" y="776" font-size="6" fill="#666">L&amp;14 &#42; &amp; V&amp;14</text>
+  <text x="910" y="778" font-size="6" fill="#666">L&amp;15 &#42; &amp; V&amp;15</text>
+  <text x="910" y="780" font-size="6" fill="#666">L&amp;16 &#42; &amp; V&amp;16</text>
+  <text x="910" y="782" font-size="6" fill="#666">L&amp;17 &#42; &amp; V&amp;17</text>
+  <text x="910" y="784" font-size="6" fill="#666">L&amp;18 &#42; &amp; V&amp;18</text>
+  <text x="910" y="786" font-size="6" fill="#666">L&amp;19 &#42; &amp; V&amp;19</text>
+  <text x="910" y="788" font-size="6" fill="#666">L&amp;20 &#42; &amp; V&amp;20</text>
+  <text x="910" y="790" font-size="6" fill="#666">L&amp;21 &#42; &amp; V&amp;21</text>
+  <text x="910" y="792" font-size="6" fill="#666">L&amp;22 &#42; &amp; V&amp;22</text>
+  <text x="910" y="794" font-size="6" fill="#666">L&amp;23 &#42; &amp; V&amp;23</text>
+  <text x="910" y="796" font-size="6" fill="#666">L&amp;24 &#42; &amp; V&amp;24</text>
+  <text x="910" y="798" font-size="6" fill="#666">L&amp;25 &#42; &amp; V&amp;25</text>
+  <text x="910" y="800" font-size="6" fill="#666">L&amp;26 &#42; &amp; V&amp;26</text>
+  <text x="910" y="802" font-size="6" fill="#666">L&amp;27 &#42; &amp; V&amp;27</text>
+  <text x="910" y="804" font-size="6" fill="#666">L&amp;28 &#42; &amp; V&amp;28</text>
+  <text x="910" y="806" font-size="6" fill="#666">L&amp;29 &#42; &amp; V&amp;29</text>
+  <text x="910" y="808" font-size="6" fill="#666">L&amp;30 &#42; &amp; V&amp;30</text>
+</svg>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">
+  <g id="layer1" transform="translate(10,10)">
+    <g id="layer2" transform="scale(0.95)">
+      <g id="layer3" transform="rotate(5)">
+        <g id="layer4" transform="translate(50,50)">
+          <rect x="0" y="0" width="80" height="40" fill="#4A90D9" rx="4"/>
+          <text x="40" y="25" text-anchor="middle" font-size="12" fill="white">Node A &amp; B</text>
+          <g id="layer5" transform="translate(100,0)">
+            <rect x="0" y="0" width="80" height="40" fill="#50C878" rx="4"/>
+            <text x="40" y="25" text-anchor="middle" font-size="12" fill="white">Node C &amp; D</text>
+            <g id="layer6" transform="translate(100,0)">
+              <rect x="0" y="0" width="80" height="40" fill="#FF6B6B" rx="4"/>
+              <text x="40" y="25" text-anchor="middle" font-size="12" fill="white">Node E &amp; F</text>
+            </g>
+          </g>
+        </g>
+        <path d="M 50 50 L 150 50 L 250 50" stroke="#333" fill="none" stroke-width="2" marker-end="url(#a)"/>
+      </g>
+    </g>
+  </g>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#333"/>
+    </marker>
+  </defs>
+</svg>

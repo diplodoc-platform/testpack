@@ -91,6 +91,8 @@ items:
         href: syntax/quote-link.md
       - name: Package Template
         href: syntax/package-template.md
+  - name: Reproducers
+    href: reproducers/index.md
   - name: Search
     items:
       - name: Обзор
