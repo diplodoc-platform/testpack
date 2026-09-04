@@ -6,5 +6,5 @@
     "resolveJsonModule": true,
     "declaration": true
   },
-  "exclude": ["node_modules", "docs/output", "build", "tests/__screenshots__"]
+  "exclude": ["node_modules", "docs/output", "build", "tests/__screenshots__", "scripts"]
 }

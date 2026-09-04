@@ -33,3 +33,4 @@ import './quote-link';
 import './package-template';
 import './verification-profiles';
 import './reproducers';
+import './golden-files';

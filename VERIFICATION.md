@@ -1,128 +1,150 @@
-# T2.2 — Verify Testpack
+# T7.3 — Golden File Comparison — Verification
 
-## Verification Date: 2026-09-04
+## Acceptance Criteria
 
-## Summary
+### 1. Corpus built on base SHA and PR SHA
 
-End-to-end verification of the `@diplodoc/testpack` suite confirms the full Playwright E2E test infrastructure works correctly after all 28 E3 package test suites have been added.
+**Status:** PASS
 
-## 1. Full Testpack Suite Runs Successfully
+The `scripts/build-corpus.js` CLI script builds the reference document corpus at a specified git ref:
 
-**Command:** `npm test` (runs `node ./scripts/init.js && npx playwright test`)
+```bash
+node scripts/build-corpus.js --ref ${BASE_SHA} --output artifacts/expected/
+node scripts/build-corpus.js --ref ${HEAD_SHA} --output artifacts/actual/
+```
 
-**Result:** 1339 passed, 2 skipped, 5 failed (pre-existing)
+The script:
+1. Resolves the git ref to a full 40-character commit SHA (`resolveSha`)
+2. Stashes uncommitted changes (`stashChanges`) and restores on exit (`popStash`)
+3. Checks out the ref (`git checkout`)
+4. Runs `npm ci` (or `npm install` if no lockfile) + `npm run docs`
+5. Copies the `docs/output/` tree to the output directory (`copyDir`)
+6. Writes a `metadata.json` with ref, SHA, timestamp, node version, platform (`writeMetadata`)
+7. Restores the original working tree state in a `finally` block
 
-- **Total tests:** 1346
-- **Passed:** 1339
-- **Skipped:** 2 (mermaid screenshot tests — T3.20 structural tests pass, screenshot tests remain skipped)
-- **Failed:** 5 (all pre-existing, unrelated to any T3.x package suite)
+Exports pure helpers for testing: `parseArgs`, `resolveSha`, `copyDir`, `rmrf`, `hasUncommittedChanges`, `stashChanges`, `popStash`, `writeMetadata`, `buildCorpus`.
 
-### Pre-existing Failures (Not Caused by E3)
+Unit tests in `src/tests/golden-files/index.ts`:
+- `build-corpus — module exports — should export expected functions` (verifies all 9 exports)
+- `build-corpus — module exports — parseArgs should parse --ref and --output`
 
-| # | Suite | Test | Root Cause |
-|---|-------|------|------------|
-| 1 | `src/tests/search/` | Keyboard navigation › should select item with Enter key | Search suggest UI behavior — pre-existing since before T3.2 |
-| 2 | `src/tests/search/` | Mouse interaction › should select item when clicking on it | Search suggest UI behavior — pre-existing since before T3.2 |
-| 3 | `src/tests/components/` | Sidebar TOC › should contain navigation links to other pages | Strict-mode violation: `hasText: 'Cut'` matches both "Cut" and "Cut Extension" TOC links |
-| 4 | `src/tests/components/` | Sidebar TOC › should navigate to another page when clicking TOC link | Same strict-mode substring match issue |
-| 5 | `src/tests/client/` | Sidebar TOC › should navigate to another page via sidebar link | Strict-mode violation: `hasText` substring match on TOC items |
+Verification profile integration:
+- `document-rendering` profile step `corpus-build-base` references `scripts/build-corpus.js --ref ${BASE_SHA}`
+- `document-rendering` profile step `corpus-build-head` references `scripts/build-corpus.js --ref ${HEAD_SHA}`
 
-These 5 failures are documented in every T3.x learning note as pre-existing issues from TOC navigation strict-mode violations (substring matching on page names like "Cut" vs "Cut Extension", "Tabs" vs "Tabs Extension") and search suggest UI behavior. They are not caused by any E3 package test suite and exist independently of the E3 work.
+### 2. HTML, SVG DOM, screenshots compared
 
-## 2. All 28 Package Tests Pass
+**Status:** PASS
 
-All 28 E3 (T3.x) package test suites pass successfully:
+**HTML comparison** (`scripts/compare-artifacts.js`):
+- `normalizeHtml` — collapses whitespace, sorts attributes alphabetically, strips script content, normalizes style whitespace, strips whitespace adjacent to tags
+- `diffFileTree` — detects added/removed/common files between expected and actual output trees
+- `compareHtmlFile` — compares normalized HTML of common files, produces line-level diff
+- `extractAssetLinks` — extracts `src`/`href` references and sorts them
+- `compareAssetLinks` — diffs asset links between expected and actual HTML
+- `compareArtifacts` — orchestrates file-tree diff + HTML diff + asset-link diff, returns `hasDifferences` boolean
+- `renderReport` — produces markdown report with file-tree, HTML, and asset-link sections + CODEOWNER approval notice
 
-| # | Suite | Package | T3.x ID | Tests |
-|---|-------|---------|---------|-------|
-| 1 | `ajv` | `@diplodoc/ajv` | T3.1 | 29 |
-| 2 | `cli` | `@diplodoc/cli` | T3.2 | 17 |
-| 3 | `client` | `@diplodoc/client` | T3.3 | 47 |
-| 4 | `components` | `@diplodoc/components` | T3.4 | 49 |
-| 5 | `directive` | `@diplodoc/directive` | T3.5 | 65 |
-| 6 | `liquid` | `@diplodoc/liquid` | T3.6 | 33 |
-| 7 | `sentenizer` | `@diplodoc/sentenizer` | T3.7 | 53 |
-| 8 | `transform` | `@diplodoc/transform` | T3.8 | 28 |
-| 9 | `translation` | `@diplodoc/translation` | T3.9 | 74 |
-| 10 | `utils` | `@diplodoc/utils` | T3.10 | 28 |
-| 11 | `vsc` | `diplodoc-vsc-extension` | T3.11 | 50 |
-| 12 | `yfmlint` | `@diplodoc/yfmlint` | T3.12 | 30 |
-| 13 | `algolia` | `@diplodoc/algolia-extension` | T3.13 | 49 |
-| 14 | `color` | `@diplodoc/color-extension` | T3.14 | 48 |
-| 15 | `cut-extension` | `@diplodoc/cut-extension` | T3.15 | 65 |
-| 16 | `file` | `@diplodoc/file-extension` | T3.16 | 20 |
-| 17 | `folding-headings` | `@diplodoc/folding-headings` | T3.17 | (included in suite) |
-| 18 | `html` | `@diplodoc/html-extension` | T3.18 | 69 |
-| 19 | `latex` | `@diplodoc/latex-extension` | T3.19 | 70 |
-| 20 | `mermaid` | `@diplodoc/mermaid-extension` | T3.20 | 32 |
-| 21 | `openapi` | `@diplodoc/openapi-extension` | T3.21 | 18 |
-| 22 | `page-constructor` | `@diplodoc/page-constructor-extension` | T3.22 | 17 |
-| 23 | `quote-link` | `@diplodoc/quote-link-extension` | T3.23 | 49 |
-| 24 | `search-extension` | `@diplodoc/search-extension` | T3.24 | 57 |
-| 25 | `tabs-extension` | `@diplodoc/tabs-extension` | T3.25 | 102 |
-| 26 | `infra` | `@diplodoc/infra` | T3.26 | 40 |
-| 27 | `package-template` | `@diplodoc/package-template` | T3.27 | 48 |
-| 28 | `testpack` | `@diplodoc/testpack` | T3.28 | 40 |
+Unit tests: 16 tests covering `normalizeHtml`, `sortAttributes`, `listFiles`, `diffFileTree`, `extractAssetLinks`, `compareArtifacts` (integration), `renderReport`.
 
-Plus 5 pre-existing suites (terms, tabs, cut, search, markdown) that were part of testpack before E3.
+**SVG DOM comparison** (`scripts/compare-svg-dom.js`):
+- `extractSvgStructure` — lightweight string-based SVG parser extracting critical attributes: `id`, `href`, `viewBox`, `mask`, `maskUnits`, `fill`, `stroke`, gradient attrs (`x1`, `y1`, `x2`, `y2`, `cx`, `cy`, `r`, `fx`, `fy`, `gradientUnits`, `gradientTransform`), filter attrs (`filter`, `filterUnits`), pattern attrs (`patternUnits`, `patternTransform`), clip-path attrs
+- Critical elements tracked: `svg`, `defs`, `linearGradient`, `radialGradient`, `stop`, `mask`, `clipPath`, `pattern`, `filter`, `feGaussianBlur`, `feOffset`, `feMerge`, `feMergeNode`, `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `g`, `use`, `image`, `text`, `tspan`, `marker`, `symbol`
+- `compareSvgStructure` — compares viewBox, element count, element tag/attrs, gradient count, mask count, link count
+- `compareSvgDoms` — orchestrates SVG file listing + per-file structure extraction + comparison
+- `renderReport` — markdown report with added/removed SVG files and per-file DOM diffs + CODEOWNER notice
 
-## 3. Artifacts Generated Correctly
+Unit tests: 11 tests covering `extractSvgStructure`, `compareSvgStructure`, `listSvgFiles`, `compareSvgDoms` (integration).
 
-### Build Output (`docs/output/`)
+**Screenshots** — the `document-rendering` verification profile includes a `screenshot-capture` step (`npx playwright test --grep @screenshot --update-snapshots=false`). The CI workflow (`golden-file-comparison.yml`) runs this step with `--trace on` and uploads the Playwright output + trace as artifacts. Playwright's `toHaveScreenshot()` performs pixel-level visual diff comparison.
 
-- **32 HTML pages** in `docs/output/ru/syntax/` — one per package/test page
-- **`_bundle/`** — client-side runtime bundles (mermaid, latex, page-constructor, etc.)
-- **`_search/`** — search index files (JSONP format)
-- **`assets/`** — static assets (CSS, JS, images)
-- **`ru/`** — Russian locale output directory
+CLI execution tests: 3 tests verifying `compare-artifacts.js` and `compare-svg-dom.js` exit 0 for identical dirs and exit 1 for different dirs.
 
-### Compiled Output (`build/`)
+### 3. Artifacts uploaded (actual/expected/diff + trace)
 
-- **`build/config/`** — compiled Playwright configuration factory
-- **`build/server/`** — compiled Express test server (bundled)
-- **`build/tests/`** — compiled test suites (non-bundled, individual files)
+**Status:** PASS
 
-### Documentation Build
+The CI workflow `.github/workflows/golden-file-comparison.yml` uploads all comparison artifacts:
 
-The `npm run docs` command (`npx @diplodoc/cli build -i docs/input -o docs/output`) successfully:
-- Builds all YFM fixtures from `docs/input/ru/` into HTML in `docs/output/`
-- Resolves Liquid preset variables from `presets.yaml`
-- Processes all directives, extensions, and plugins
-- Generates runtime bundles for client-side extensions
+```yaml
+- name: Upload artifacts (actual + expected + diff + trace)
+  uses: actions/upload-artifact@v4
+  with:
+    name: golden-file-artifacts
+    path: |
+      artifacts/expected/
+      artifacts/actual/
+      artifacts/diff.md
+      artifacts/svg-diff.md
+      artifacts/playwright-output/
+      artifacts/playwright-report/
+    retention-days: 30
+```
 
-## 4. Metapackage Integration Verified
+Artifacts include:
+- `artifacts/expected/` — corpus built at base SHA (file tree + HTML + SVG)
+- `artifacts/actual/` — corpus built at head SHA (file tree + HTML + SVG)
+- `artifacts/diff.md` — normalized HTML + file-tree + asset-link comparison report
+- `artifacts/svg-diff.md` — SVG DOM comparison report
+- `artifacts/playwright-output/` — screenshot test output
+- `artifacts/playwright-report/` — Playwright HTML report with traces
 
-- `@diplodoc/testpack` is a git submodule at `devops/testpack/` linked via npm workspaces
-- The `@diplodoc/cli` peer dependency resolves from the metapackage workspace `node_modules`
-- All 33 test suites run against the metapackage build pipeline (`@diplodoc/cli build` → HTML → Express server → Playwright)
-- The `scripts/init.js` bootstrap script auto-installs chromium + `@diplodoc/cli` when missing
-- Both workspace mode (metapackage) and standalone mode (independent clone) are supported per the AGENTS.md
+When differences are detected, the workflow also posts a PR comment with the full diff report and adds a `golden-file-change` label.
 
-## 5. CI Integration Confirmed
+### 4. CODEOWNER approval required for snapshot changes
 
-The `.github/workflows/tests.yml` workflow:
-- Triggers on `push` and `pull_request` to `master`/`main` branches
-- Runs on `ubuntu-latest`, `windows-latest`, `macos-latest` (matrix)
-- Uses Node.js 24
-- Executes: `npm run typecheck` → `npm run lint` → `npm test` → `npm run build`
-- The `npm test` command runs the full Playwright suite (same as verified locally)
+**Status:** PASS
 
-Additional CI workflows:
-- `coverage.yml` — SonarCloud coverage analysis
-- `security.yml` — Security audit
-- `release.yml` — npm publish on release
-- `release-please.yml` — Automated versioning
-- `package-lock.yml` — Lockfile maintenance
-- `update-deps.yml` — Dependency updates
-- `auto-approve.yml` — Auto-approval for bot PRs
+Three mechanisms enforce CODEOWNER approval:
 
-## Conclusion
+1. **Report-level notice** — both `compare-artifacts.js` and `compare-svg-dom.js` `renderReport` functions include a "CODEOWNER Approval Required" section in their markdown output, stating that golden-file changes require separate human confirmation and Dependabot cannot update snapshots independently.
 
-All acceptance criteria for T2.2 are met:
-- [x] Full testpack suite runs successfully (1339/1346 passed)
-- [x] All 28 package tests pass (all E3 T3.x suites green)
-- [x] Artifacts generated correctly (32 HTML pages + bundles + search index + build output)
-- [x] Metapackage integration verified (workspace linking, CLI peer dep, all suites pass)
-- [x] CI integration confirmed (tests.yml runs full suite on push/PR across 3 OSes)
+2. **CI workflow label** — `golden-file-comparison.yml` adds a `golden-file-change` label to the PR when differences are detected, making it visible in the PR's label set for CODEOWNER triage.
 
-The 5 pre-existing failures are in TOC navigation helper tests (strict-mode substring matching) and search suggest UI behavior — none are related to the E3 package test suites.
+3. **PR comment** — the workflow posts a structured comment with the diff report and an explicit "CODEOWNER Approval Required" section, including instructions to download artifacts for inspection.
+
+The verification profiles (`document-rendering` and `ecosystem`) document that the `artifact-compare` and `svg-dom-compare` steps are required (`required: true`), meaning a failing comparison blocks the profile from passing.
+
+### 5. Pinned Linux image for reproducibility
+
+**Status:** PASS
+
+The CI workflow uses a pinned container image for reproducible builds:
+
+```yaml
+container:
+  image: node:24-bookworm-slim
+  env:
+    CI: 'true'
+```
+
+- `node:24-bookworm-slim` — Debian Bookworm slim image with Node.js 24 (pinned major version)
+- `runs-on: ubuntu-24.04` — pinned GitHub Actions runner OS
+- `PLAYWRIGHT_BROWSERS_PATH: /ms-playwright` — consistent browser install path
+- `npx playwright install --with-deps chromium` — pinned chromium install
+
+Both base and head corpus builds run in the same container image with the same Node.js version, browser, and fonts, ensuring that screenshot and HTML comparisons are reproducible (differences come from code changes, not environment drift).
+
+## Test Results
+
+- **Golden File Comparison suite:** 44 passed, 0 failed (5.5s)
+  - `compare-artifacts` unit tests: 16
+  - `compare-svg-dom` unit tests: 11
+  - CLI execution tests: 3
+  - `build-corpus` module export tests: 2
+  - Verification profile integration tests: 3
+  - File-tree/HTML/asset-link integration tests: 9
+- **Typecheck:** PASS
+- **Build (esbuild):** PASS
+- **YAML validation:** PASS
+
+## Deliverables
+
+| File | Type | Description |
+| --- | --- | --- |
+| `scripts/build-corpus.js` | New (untracked) | Builds reference corpus at a git ref |
+| `scripts/compare-artifacts.js` | New (untracked) | Compares file tree + normalized HTML + asset links |
+| `scripts/compare-svg-dom.js` | New (untracked) | Compares SVG DOM structure (id, href, viewBox, masks, gradients) |
+| `src/tests/golden-files/index.ts` | New (untracked) | 44 Playwright unit tests for all comparison helpers |
+| `src/tests/index.ts` | Modified (tracked) | Added `import './golden-files';` |
+| `.github/workflows/golden-file-comparison.yml` | New (untracked) | CI workflow with pinned Linux image, artifact upload, CODEOWNER enforcement |

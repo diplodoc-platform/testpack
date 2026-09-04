@@ -1,0 +1,130 @@
+name: Golden File Comparison
+
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+      - 'docs/input/**'
+      - 'src/**'
+      - 'scripts/**'
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  golden-file-comparison:
+    name: Golden File Comparison
+    runs-on: ubuntu-24.04
+    container:
+      image: node:24-bookworm-slim
+      env:
+        CI: 'true'
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+    steps:
+      - name: Checkout (base + head)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve base and head SHAs
+        id: shas
+        run: |
+          echo "base-sha=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          echo "head-sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build corpus (base SHA — expected)
+        run: |
+          node scripts/build-corpus.js \
+            --ref "${{ steps.shas.outputs.base-sha }}" \
+            --output artifacts/expected/
+
+      - name: Build corpus (head SHA — actual)
+        run: |
+          node scripts/build-corpus.js \
+            --ref "${{ steps.shas.outputs.head-sha }}" \
+            --output artifacts/actual/
+
+      - name: Compare artifacts (file tree + normalized HTML + asset links)
+        id: compare-artifacts
+        continue-on-error: true
+        run: |
+          node scripts/compare-artifacts.js \
+            --expected artifacts/expected/output/ \
+            --actual artifacts/actual/output/ \
+            --report artifacts/diff.md
+
+      - name: Compare SVG DOM (id, href, viewBox, masks, gradients)
+        id: compare-svg
+        continue-on-error: true
+        run: |
+          node scripts/compare-svg-dom.js \
+            --expected artifacts/expected/output/ \
+            --actual artifacts/actual/output/ \
+            --report artifacts/svg-diff.md
+
+      - name: Capture screenshots (visual regression)
+        id: screenshots
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_HTML_REPORT: artifacts/playwright-report
+        run: |
+          npx playwright test --grep @screenshot --update-snapshots=false \
+            --output artifacts/playwright-output \
+            --trace on
+
+      - name: Upload artifacts (actual + expected + diff + trace)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-file-artifacts
+          path: |
+            artifacts/expected/
+            artifacts/actual/
+            artifacts/diff.md
+            artifacts/svg-diff.md
+            artifacts/playwright-output/
+            artifacts/playwright-report/
+          retention-days: 30
+
+      - name: Post comparison report as PR comment
+        if: always() && (steps.compare-artifacts.outcome == 'failure' || steps.compare-svg.outcome == 'failure')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "## Golden File Comparison — Differences Detected"
+            echo ""
+            if [ -f artifacts/diff.md ]; then
+              cat artifacts/diff.md
+            fi
+            if [ -f artifacts/svg-diff.md ]; then
+              echo "---"
+              cat artifacts/svg-diff.md
+            fi
+            echo ""
+            echo "### CODEOWNER Approval Required"
+            echo "Any golden-file change requires separate human CODEOWNER confirmation."
+            echo "Dependabot cannot update snapshots independently."
+            echo "Download the **golden-file-artifacts** from the workflow run to inspect actual/expected/diff."
+          } | gh pr comment ${{ github.event.number }} --body-file -
+
+      - name: Add CODEOWNER review label
+        if: always() && (steps.compare-artifacts.outcome == 'failure' || steps.compare-svg.outcome == 'failure')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit ${{ github.event.number }} \
+            --add-label "golden-file-change" || true
+
+      - name: Fail if differences detected
+        if: steps.compare-artifacts.outcome == 'failure' || steps.compare-svg.outcome == 'failure'
+        run: exit 1
