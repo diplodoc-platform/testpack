@@ -292,6 +292,18 @@ const ECOSYSTEM_STEPS: VerificationStep[] = [
         required: true,
         buildsOn: ['metapackage-build'],
     },
+    {
+        id: 'arcadia-external-check',
+        name: 'Arcadia external check',
+        description:
+            'Verify the external impact on consumers in the Arcadia ' +
+            'monorepo (Yandex internal VCS). Checks that the Diplodoc ' +
+            'package update does not break contrib library consumers. ' +
+            'Runs in dry-run mode when the arc CLI is not available.',
+        command: 'node scripts/arcadia-check.js --package ${PACKAGE_NAME} --dry-run',
+        required: true,
+        buildsOn: ['metapackage-build'],
+    },
 ];
 
 /**

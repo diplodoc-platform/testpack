@@ -35,3 +35,4 @@ import './verification-profiles';
 import './reproducers';
 import './golden-files';
 import './downstream-check';
+import './arcadia-check';
