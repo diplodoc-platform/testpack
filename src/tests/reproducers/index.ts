@@ -108,8 +108,8 @@ test.describe('Reproducer Fixtures', () => {
             await expect(svg).toHaveScreenshot('svgo-large-diagram.png', {
                 animations: 'disabled',
                 // Text rasterization differs across macOS, Linux, and Windows runners.
-                // The known platform delta stays below 1%; a missing SVG render is much larger.
-                maxDiffPixelRatio: 0.015,
+                // The Windows delta is 3687 pixels (~1%); a missing SVG render is much larger.
+                maxDiffPixels: 4000,
             });
         });
 
@@ -177,8 +177,8 @@ test.describe('Reproducer Fixtures', () => {
             await expect(svg).toBeVisible();
             await expect(svg).toHaveScreenshot('complex-gradients.png', {
                 animations: 'disabled',
-                // Windows rasterization differs by about 0.4%; missing gradients differ by over 30%.
-                maxDiffPixelRatio: 0.015,
+                // Windows differs by 425 pixels (~0.4%); missing gradients differ by over 30%.
+                maxDiffPixels: 500,
             });
         });
 
