@@ -111,6 +111,8 @@ function stripDynamicBundleReferences(content) {
  */
 function normalizeBuildSpecificValues(content) {
     let inlineCodeIndex = 1;
+    const runtimeIds = new Map();
+    const runtimeIdCounters = new Map();
 
     return stripDynamicBundleReferences(normalizeGeneratedReferences(content))
         .replace(/\r\n/g, '\n')
@@ -123,14 +125,30 @@ function normalizeBuildSpecificValues(content) {
         )
         .replace(/(\/|\\)[a-z0-9]{12,16}-(index|registry|resources)\./gi, '/hash-$2.')
         .replace(/-[a-z0-9]{12,16}\./gi, '-hash.')
+        .replace(/\b(rnd|svg)-[a-z0-9]{3,8}__/gi, 'rnd-hash__')
         .replace(
             /\bDiplodoc Platform v\d+\.\d+\.\d+(?:-[\w-]+)?\b/g,
             'Diplodoc Platform vDIPLODOC-VERSION',
         )
         .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, 'UUID')
         .replace(
+            /\b(defaultTabsGroup|regular|dropdown|accordion)-[a-z0-9]{8}\b/gi,
+            (value, prefix) => {
+                if (!runtimeIds.has(value)) {
+                    const index = (runtimeIdCounters.get(prefix) || 0) + 1;
+                    runtimeIdCounters.set(prefix, index);
+                    runtimeIds.set(value, `${prefix}-RUNTIME-ID-${index}`);
+                }
+                return runtimeIds.get(value);
+            },
+        )
+        .replace(
             /(aria-controls=\\":term_element\\" tabindex=\\"\d+\\" id=\\")[a-zA-Z0-9]{1,10}/g,
             '$1vTERM-ID',
+        )
+        .replace(
+            /(aria-controls=\\":\d+_element\\" tabindex=\\"\d+\\" id=\\"\d+-)[a-zA-Z0-9]{8}/g,
+            '$1TERM-ID',
         )
         .replace(
             /id=\\"inline-code-id-[a-zA-Z0-9]{8}\\"/g,

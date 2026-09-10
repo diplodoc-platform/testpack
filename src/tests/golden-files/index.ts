@@ -185,6 +185,20 @@ test.describe('Golden File Comparison', () => {
                 'id="UUID" id=\\"inline-code-id-1\\"',
             );
         });
+
+        test('should normalize structured tabs and terms runtime ids', () => {
+            const input = [
+                'defaultTabsGroup-a1b2c3d4 regular-z9y8x7w6 regular-z9y8x7w6',
+                'aria-controls=\\":1_element\\" tabindex=\\"0\\" id=\\"1-a1b2c3d4\\"',
+            ].join(' ');
+
+            expect(compareArtifacts.normalizeBuildSpecificValues(input)).toBe(
+                [
+                    'defaultTabsGroup-RUNTIME-ID-1 regular-RUNTIME-ID-1 regular-RUNTIME-ID-1',
+                    'aria-controls=\\":1_element\\" tabindex=\\"0\\" id=\\"1-TERM-ID\\"',
+                ].join(' '),
+            );
+        });
     });
 
     test.describe('compare-artifacts — extractAssetLinks', () => {
