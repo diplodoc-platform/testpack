@@ -168,7 +168,9 @@ test.describe('Components', () => {
         });
 
         test('should contain navigation links to other pages', async ({page}) => {
-            const tabsLink = page.locator('.dc-toc__list-item a', {hasText: CONTENT.TOC_ITEM_TABS});
+            const tabsLink = page
+                .locator('.dc-toc')
+                .getByRole('link', {name: CONTENT.TOC_ITEM_TABS, exact: true});
 
             await expect(tabsLink).toHaveCount(1);
             await expect(tabsLink).toHaveAttribute('href', /tabs\.html/);
@@ -183,7 +185,9 @@ test.describe('Components', () => {
         });
 
         test('should navigate to another page when clicking TOC link', async ({page}) => {
-            const cutLink = page.locator('.dc-toc__list-item a', {hasText: CONTENT.TOC_ITEM_CUT});
+            const cutLink = page
+                .locator('.dc-toc')
+                .getByRole('link', {name: CONTENT.TOC_ITEM_CUT, exact: true});
 
             await cutLink.click();
 

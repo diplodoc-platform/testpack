@@ -7,7 +7,7 @@
  * downstream impact by:
  *
  * 1. Resolving the downstream consumers of the changed core package.
- * 2. Building each consumer in the metapackage context (npm ci + npm run build).
+ * 2. Building each consumer against dependencies installed at the metapackage root.
  * 3. Running each consumer's test suite.
  * 4. Building the testpack corpus (docs) with the updated package.
  * 5. Running semantic comparison (compare-artifacts) and visual comparison
@@ -16,7 +16,7 @@
  *
  * Usage:
  *   node scripts/downstream-check.js --package <name> [--pr-sha <sha>]
- *   node scripts/downstream-check.js --package transform --pr-sha abc123
+ *   node scripts/downstream-check.js --package transform --pr-sha <40-character-sha>
  *   node scripts/downstream-check.js --package cli --output artifacts/downstream/
  *   node scripts/downstream-check.js --package components --report artifacts/downstream-report.md
  *
@@ -27,7 +27,9 @@
 
 'use strict';
 
-const {execSync} = require('child_process');
+/* eslint-disable no-console -- CLI diagnostics are part of this script's interface. */
+
+const {execFileSync, execSync} = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -71,16 +73,8 @@ const DOWNSTREAM_CONSUMERS = {
         'extensions/html',
         'extensions/page-constructor',
     ],
-    components: [
-        'packages/client',
-        'extensions/search',
-    ],
-    cli: [
-        'packages/client',
-        'extensions/algolia',
-        'extensions/search',
-        'devops/testpack',
-    ],
+    components: ['packages/client', 'extensions/search'],
+    cli: ['packages/client', 'extensions/algolia', 'extensions/search', 'devops/testpack'],
 };
 
 /**
@@ -164,22 +158,21 @@ function resolvePackageDir(pkg, metapackageRoot) {
  * @returns {void}
  */
 function replaceSubmoduleSha(submoduleDir, sha) {
-    execSync(`git fetch origin`, {cwd: submoduleDir, stdio: 'pipe'});
-    execSync(`git checkout "${sha}"`, {cwd: submoduleDir, stdio: 'pipe'});
+    if (!/^[0-9a-f]{40}$/i.test(sha)) throw new Error('Expected a full commit SHA');
+    execFileSync('git', ['fetch', 'origin'], {cwd: submoduleDir, stdio: 'pipe'});
+    execFileSync('git', ['checkout', '--detach', sha], {cwd: submoduleDir, stdio: 'pipe'});
 }
 
 /**
  * Build a consumer package in the metapackage context.
- * Runs `npm ci` (or `npm install` if no lockfile) followed by `npm run build`.
+ * Runs the consumer build against dependencies installed once at the
+ * metapackage root. Per-consumer installs would mutate submodules and can hide
+ * workspace-resolution failures.
  * @param {string} consumerDir - Path to the consumer package.
- * @returns {{success: boolean, error: string|null}}
+ * @returns {object} Build outcome.
  */
 function buildConsumer(consumerDir) {
     try {
-        const installCmd = fs.existsSync(path.join(consumerDir, 'package-lock.json'))
-            ? 'npm ci'
-            : 'npm install';
-        execSync(installCmd, {cwd: consumerDir, stdio: 'pipe'});
         execSync('npm run build', {cwd: consumerDir, stdio: 'pipe'});
         return {success: true, error: null};
     } catch (err) {
@@ -190,7 +183,7 @@ function buildConsumer(consumerDir) {
 /**
  * Run a consumer package's test suite.
  * @param {string} consumerDir - Path to the consumer package.
- * @returns {{success: boolean, error: string|null}}
+ * @returns {object} Test outcome.
  */
 function runConsumerTests(consumerDir) {
     try {
@@ -205,7 +198,7 @@ function runConsumerTests(consumerDir) {
  * Build the testpack corpus (docs) at the current working tree state.
  * @param {string} testpackDir - Path to the testpack submodule.
  * @param {string} outputDir - Destination directory for the corpus.
- * @returns {{success: boolean, outputDir: string|null, error: string|null}}
+ * @returns {object} Corpus build outcome.
  */
 function buildTestpackCorpus(testpackDir, outputDir) {
     try {
@@ -228,6 +221,7 @@ function buildTestpackCorpus(testpackDir, outputDir) {
  * Recursively copy a directory.
  * @param {string} src - Source directory.
  * @param {string} dest - Destination directory.
+ * @returns {void}
  */
 function copyDir(src, dest) {
     fs.mkdirSync(dest, {recursive: true});
@@ -305,6 +299,7 @@ function summarizeConsumerResults(consumerResults) {
  * @param {boolean} [options.skipCorpus] - Skip corpus comparison step.
  * @returns {object} Downstream check result.
  */
+// eslint-disable-next-line complexity -- orchestration keeps all fail-closed states visible.
 function runDownstreamCheck(pkg, options) {
     options = options || {};
     const opts = {
@@ -341,6 +336,18 @@ function runDownstreamCheck(pkg, options) {
         };
     }
 
+    if (opts.prSha && !/^[0-9a-f]{40}$/i.test(opts.prSha)) {
+        return {
+            package: pkg,
+            error: 'PR SHA must be a full 40-character hexadecimal commit SHA',
+            consumers: [],
+            summary: {total: 0, passed: 0, failed: 0, failedConsumers: []},
+            semanticComparison: null,
+            visualComparison: null,
+            passed: false,
+        };
+    }
+
     const consumers = resolveDownstreamConsumers(pkg);
     const consumerResults = [];
 
@@ -348,7 +355,11 @@ function runDownstreamCheck(pkg, options) {
         const consumerDir = path.join(opts.metapackageRoot, consumer);
         if (!fs.existsSync(consumerDir)) {
             consumerResults.push(
-                buildConsumerResult(consumer, {success: false, error: 'Consumer directory not found'}, {success: false, error: 'Skipped (dir not found)'}),
+                buildConsumerResult(
+                    consumer,
+                    {success: false, error: 'Consumer directory not found'},
+                    {success: false, error: 'Skipped (dir not found)'},
+                ),
             );
             continue;
         }
@@ -373,17 +384,25 @@ function runDownstreamCheck(pkg, options) {
     let semanticComparison = null;
     let visualComparison = null;
 
-    if (!opts.skipCorpus && opts.expectedDir && opts.actualDir) {
-        if (fs.existsSync(opts.expectedDir) && fs.existsSync(opts.actualDir)) {
+    let corpusError = null;
+    if (!opts.skipCorpus) {
+        if (!opts.expectedDir || !opts.actualDir) {
+            corpusError = 'Both expected and actual corpus directories are required';
+        } else if (!fs.existsSync(opts.expectedDir) || !fs.existsSync(opts.actualDir)) {
+            corpusError = 'Expected or actual corpus directory does not exist';
+        } else {
             semanticComparison = runSemanticComparison(opts.expectedDir, opts.actualDir);
             visualComparison = runVisualComparison(opts.expectedDir, opts.actualDir);
         }
     }
 
-    const corpusPassed =
-        semanticComparison === null || visualComparison === null
-            ? true
-            : !semanticComparison.hasDifferences && !visualComparison.hasDifferences;
+    const corpusPassed = opts.skipCorpus
+        ? true
+        : corpusError === null &&
+          semanticComparison !== null &&
+          visualComparison !== null &&
+          !semanticComparison.hasDifferences &&
+          !visualComparison.hasDifferences;
 
     return {
         package: pkg,
@@ -393,6 +412,7 @@ function runDownstreamCheck(pkg, options) {
         summary,
         semanticComparison,
         visualComparison,
+        corpusError,
         corpusPassed,
         passed: summary.failed === 0 && corpusPassed,
     };
@@ -403,6 +423,7 @@ function runDownstreamCheck(pkg, options) {
  * @param {object} result - Result from runDownstreamCheck.
  * @returns {string} Markdown report.
  */
+// eslint-disable-next-line complexity -- report sections mirror independent result categories.
 function renderReport(result) {
     const lines = [];
     lines.push('# Downstream Check Report\n');
@@ -424,6 +445,11 @@ function renderReport(result) {
         lines.push('## Error\n');
         lines.push(`> ${result.error}\n`);
         return lines.join('\n');
+    }
+
+    if (result.corpusError) {
+        lines.push('## Corpus Error\n');
+        lines.push(`> ${result.corpusError}\n`);
     }
 
     if (result.consumers.length > 0) {
@@ -463,16 +489,20 @@ function renderReport(result) {
                 lines.push('**Differences detected.**\n');
                 if (result.semanticComparison.fileTreeDiff.added.length > 0) {
                     lines.push('**Added files:**');
-                    for (const f of result.semanticComparison.fileTreeDiff.added) lines.push(`- \`${f}\``);
+                    for (const f of result.semanticComparison.fileTreeDiff.added)
+                        lines.push(`- \`${f}\``);
                     lines.push('');
                 }
                 if (result.semanticComparison.fileTreeDiff.removed.length > 0) {
                     lines.push('**Removed files:**');
-                    for (const f of result.semanticComparison.fileTreeDiff.removed) lines.push(`- \`${f}\``);
+                    for (const f of result.semanticComparison.fileTreeDiff.removed)
+                        lines.push(`- \`${f}\``);
                     lines.push('');
                 }
                 if (result.semanticComparison.htmlDiffs.length > 0) {
-                    lines.push(`**HTML diffs:** ${result.semanticComparison.htmlDiffs.length} file(s)`);
+                    lines.push(
+                        `**HTML diffs:** ${result.semanticComparison.htmlDiffs.length} file(s)`,
+                    );
                     lines.push('');
                 }
             } else {
@@ -501,7 +531,7 @@ function renderReport(result) {
         lines.push('## CODEOWNER Review Required\n');
         lines.push(
             'Downstream check failures require human CODEOWNER review. ' +
-            'The Dependabot PR must not be merged until all downstream consumers pass.',
+                'The Dependabot PR must not be merged until all downstream consumers pass.',
         );
         lines.push('');
     }
@@ -543,6 +573,7 @@ function main() {
 
     const result = runDownstreamCheck(pkg, {
         prSha,
+        metapackageRoot: args['metapackage-root'] || undefined,
         expectedDir,
         actualDir,
         skipBuild,
@@ -559,7 +590,11 @@ function main() {
 
     if (output) {
         fs.mkdirSync(output, {recursive: true});
-        fs.writeFileSync(path.join(output, 'downstream-result.json'), JSON.stringify(result, null, 2) + '\n', 'utf-8');
+        fs.writeFileSync(
+            path.join(output, 'downstream-result.json'),
+            JSON.stringify(result, null, 2) + '\n',
+            'utf-8',
+        );
     }
 
     console.log(md);

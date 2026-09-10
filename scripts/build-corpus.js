@@ -10,12 +10,11 @@
  *
  * This script:
  * 1. Resolves the git ref to a full commit SHA
- * 2. Stashes any uncommitted changes (restores on exit)
- * 3. Checks out the ref
- * 4. Runs `npm ci` (or `npm install` if no lockfile) + `npm run docs`
- * 5. Copies the `docs/output/` tree to the specified output directory
- * 6. Writes a metadata.json with the ref, SHA, timestamp, and node version
- * 7. Restores the original working tree state
+ * 2. Creates an isolated detached git worktree for the ref
+ * 3. Runs `npm ci` (or `npm install` if no lockfile) + `npm run docs`
+ * 4. Copies the `docs/output/` tree to the specified output directory
+ * 5. Writes a metadata.json with the ref, SHA, timestamp, and node version
+ * 6. Removes the temporary worktree
  *
  * The output directory structure mirrors `docs/output/`:
  *   <output>/output/          — full docs/output tree
@@ -26,8 +25,11 @@
 
 'use strict';
 
-const {execSync} = require('child_process');
+/* eslint-disable no-console -- CLI diagnostics are part of this script's interface. */
+
+const {execFileSync} = require('child_process');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 /**
@@ -53,13 +55,16 @@ function parseArgs() {
  * @returns {string} Full commit SHA.
  */
 function resolveSha(ref) {
-    return execSync(`git rev-parse "${ref}"`, {encoding: 'utf-8'}).trim();
+    return execFileSync('git', ['rev-parse', '--verify', '--end-of-options', `${ref}^{commit}`], {
+        encoding: 'utf-8',
+    }).trim();
 }
 
 /**
  * Recursively copy a directory.
  * @param {string} src - Source directory.
  * @param {string} dest - Destination directory.
+ * @returns {void}
  */
 function copyDir(src, dest) {
     fs.mkdirSync(dest, {recursive: true});
@@ -78,41 +83,10 @@ function copyDir(src, dest) {
 /**
  * Recursively remove a directory.
  * @param {string} dir - Directory to remove.
+ * @returns {void}
  */
 function rmrf(dir) {
     fs.rmSync(dir, {recursive: true, force: true});
-}
-
-/**
- * Check whether there are uncommitted changes in the working tree.
- * @returns {boolean}
- */
-function hasUncommittedChanges() {
-    const status = execSync('git status --porcelain', {encoding: 'utf-8'}).trim();
-    return status.length > 0;
-}
-
-/**
- * Stash uncommitted changes (if any) and return the stash result.
- * @returns {string|null} Stash reference or null if nothing was stashed.
- */
-function stashChanges() {
-    if (!hasUncommittedChanges()) return null;
-    execSync('git stash push -u -m "build-corpus: auto-stash"', {stdio: 'pipe'});
-    return execSync('git stash list --format=%gd -1', {encoding: 'utf-8'}).trim();
-}
-
-/**
- * Pop the most recent stash (if one was created).
- * @param {string|null} stashRef - Stash reference from stashChanges().
- */
-function popStash(stashRef) {
-    if (!stashRef) return;
-    try {
-        execSync(`git stash pop "${stashRef}"`, {stdio: 'pipe'});
-    } catch {
-        execSync(`git stash apply "${stashRef}"`, {stdio: 'pipe'});
-    }
 }
 
 /**
@@ -120,6 +94,7 @@ function popStash(stashRef) {
  * @param {string} outputDir - Output directory.
  * @param {string} ref - Original ref argument.
  * @param {string} sha - Resolved commit SHA.
+ * @returns {void}
  */
 function writeMetadata(outputDir, ref, sha) {
     const meta = {
@@ -140,33 +115,38 @@ function writeMetadata(outputDir, ref, sha) {
  * Build the corpus at a given git ref and copy output to the target directory.
  * @param {string} ref - Git ref (branch, tag, SHA).
  * @param {string} outputDir - Destination directory for the corpus.
+ * @returns {void}
  */
 function buildCorpus(ref, outputDir) {
     const sha = resolveSha(ref);
-    const originalHead = execSync('git rev-parse HEAD', {encoding: 'utf-8'}).trim();
-
-    const stash = stashChanges();
+    const destination = path.resolve(outputDir);
+    const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'diplodoc-corpus-'));
+    const worktree = path.join(tempRoot, 'worktree');
     try {
-        execSync(`git checkout "${ref}"`, {stdio: 'inherit'});
+        execFileSync('git', ['worktree', 'add', '--detach', worktree, sha], {stdio: 'inherit'});
 
-        if (fs.existsSync('package-lock.json')) {
-            execSync('npm ci', {stdio: 'inherit'});
+        if (fs.existsSync(path.join(worktree, 'package-lock.json'))) {
+            execFileSync('npm', ['ci'], {cwd: worktree, stdio: 'inherit'});
         } else {
-            execSync('npm install', {stdio: 'inherit'});
+            execFileSync('npm', ['install'], {cwd: worktree, stdio: 'inherit'});
         }
 
-        execSync('npm run docs', {stdio: 'inherit'});
+        execFileSync('npm', ['run', 'docs'], {cwd: worktree, stdio: 'inherit'});
 
-        rmrf(outputDir);
-        const docsOutput = path.join('docs', 'output');
+        rmrf(destination);
+        const docsOutput = path.join(worktree, 'docs', 'output');
         if (fs.existsSync(docsOutput)) {
-            copyDir(docsOutput, path.join(outputDir, 'output'));
+            copyDir(docsOutput, path.join(destination, 'output'));
+        } else {
+            throw new Error(`Corpus build produced no docs/output for ${sha}`);
         }
 
-        writeMetadata(outputDir, ref, sha);
+        writeMetadata(destination, ref, sha);
     } finally {
-        execSync(`git checkout "${originalHead}"`, {stdio: 'pipe'});
-        popStash(stash);
+        if (fs.existsSync(worktree)) {
+            execFileSync('git', ['worktree', 'remove', '--force', worktree], {stdio: 'pipe'});
+        }
+        fs.rmSync(tempRoot, {recursive: true, force: true});
     }
 }
 
@@ -193,9 +173,6 @@ module.exports = {
     resolveSha,
     copyDir,
     rmrf,
-    hasUncommittedChanges,
-    stashChanges,
-    popStash,
     writeMetadata,
     buildCorpus,
 };

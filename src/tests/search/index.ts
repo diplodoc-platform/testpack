@@ -247,10 +247,12 @@ test.describe('Search Suggest', () => {
             await page.waitForTimeout(500);
 
             await page.keyboard.press('ArrowDown');
+            const selectedLink = page.locator(SEARCH_SELECTORS.searchItem).first().locator('a');
+            const expectedHref = await selectedLink.getAttribute('href');
+            if (expectedHref === null) throw new Error('Selected search result has no href');
             await page.keyboard.press('Enter');
 
-            // Assert - Navigation should open selected article page
-            await expect(page).toHaveURL(/\/ru\/search\/.*\.html/);
+            await expect(page).toHaveURL(new URL(expectedHref, page.url()).href);
         });
 
         test('should close popup with Escape key', async ({page}) => {
@@ -279,10 +281,11 @@ test.describe('Search Suggest', () => {
             await searchInput.fill(TEST_QUERIES.VALID);
             await searchItems.first().waitFor({state: 'visible', timeout: 1000});
 
+            const expectedHref = await searchItems.first().locator('a').getAttribute('href');
+            if (expectedHref === null) throw new Error('Search result has no href');
             await searchItems.first().click();
 
-            // Assert - Should navigate to selected item
-            await expect(page).toHaveURL(/\/ru\/search\/.*\.html/);
+            await expect(page).toHaveURL(new URL(expectedHref, page.url()).href);
         });
 
         test('should close popup when clicking outside', async ({page}) => {

@@ -1,150 +1,101 @@
-# T7.3 — Golden File Comparison — Verification
+# Golden-file and downstream verification
 
-## Acceptance Criteria
+This file describes the current implementation. It is evidence for review, not
+a substitute for checking the required GitHub status checks on the target PR.
 
-### 1. Corpus built on base SHA and PR SHA
+## Corpus isolation
 
-**Status:** PASS
-
-The `scripts/build-corpus.js` CLI script builds the reference document corpus at a specified git ref:
+`scripts/build-corpus.js` resolves the requested ref to a full commit SHA and
+creates a detached temporary Git worktree. It installs locked dependencies,
+builds `docs/output`, copies the result to the requested artifact directory and
+always removes the temporary worktree. It never stashes, switches or restores
+the caller's checkout.
 
 ```bash
-node scripts/build-corpus.js --ref ${BASE_SHA} --output artifacts/expected/
-node scripts/build-corpus.js --ref ${HEAD_SHA} --output artifacts/actual/
+node scripts/build-corpus.js --ref "${BASE_SHA}" --output artifacts/expected/
+node scripts/build-corpus.js --ref "${HEAD_SHA}" --output artifacts/actual/
 ```
 
-The script:
-1. Resolves the git ref to a full 40-character commit SHA (`resolveSha`)
-2. Stashes uncommitted changes (`stashChanges`) and restores on exit (`popStash`)
-3. Checks out the ref (`git checkout`)
-4. Runs `npm ci` (or `npm install` if no lockfile) + `npm run docs`
-5. Copies the `docs/output/` tree to the output directory (`copyDir`)
-6. Writes a `metadata.json` with ref, SHA, timestamp, node version, platform (`writeMetadata`)
-7. Restores the original working tree state in a `finally` block
+Missing `docs/output` is an error. The produced `metadata.json` records the ref,
+resolved SHA, Node version and platform.
 
-Exports pure helpers for testing: `parseArgs`, `resolveSha`, `copyDir`, `rmrf`, `hasUncommittedChanges`, `stashChanges`, `popStash`, `writeMetadata`, `buildCorpus`.
+## Artifact comparison
 
-Unit tests in `src/tests/golden-files/index.ts`:
-- `build-corpus — module exports — should export expected functions` (verifies all 9 exports)
-- `build-corpus — module exports — parseArgs should parse --ref and --output`
+`scripts/compare-artifacts.js` compares the complete file tree, normalized HTML
+and referenced assets. JavaScript contents are preserved during normalization,
+and every common non-HTML asset is compared by SHA-256, so a same-path binary
+change is not silently accepted. Missing expected or actual directories fail
+closed.
 
-Verification profile integration:
-- `document-rendering` profile step `corpus-build-base` references `scripts/build-corpus.js --ref ${BASE_SHA}`
-- `document-rendering` profile step `corpus-build-head` references `scripts/build-corpus.js --ref ${HEAD_SHA}`
+`scripts/compare-svg-dom.js` compares standalone and inline SVG structures. It
+tracks nesting depth, element order, critical attributes, gradients, masks and
+links. Missing input directories fail closed.
 
-### 2. HTML, SVG DOM, screenshots compared
+```bash
+node scripts/compare-artifacts.js \
+  --expected artifacts/expected/output/ \
+  --actual artifacts/actual/output/ \
+  --report artifacts/diff.md
 
-**Status:** PASS
-
-**HTML comparison** (`scripts/compare-artifacts.js`):
-- `normalizeHtml` — collapses whitespace, sorts attributes alphabetically, strips script content, normalizes style whitespace, strips whitespace adjacent to tags
-- `diffFileTree` — detects added/removed/common files between expected and actual output trees
-- `compareHtmlFile` — compares normalized HTML of common files, produces line-level diff
-- `extractAssetLinks` — extracts `src`/`href` references and sorts them
-- `compareAssetLinks` — diffs asset links between expected and actual HTML
-- `compareArtifacts` — orchestrates file-tree diff + HTML diff + asset-link diff, returns `hasDifferences` boolean
-- `renderReport` — produces markdown report with file-tree, HTML, and asset-link sections + CODEOWNER approval notice
-
-Unit tests: 16 tests covering `normalizeHtml`, `sortAttributes`, `listFiles`, `diffFileTree`, `extractAssetLinks`, `compareArtifacts` (integration), `renderReport`.
-
-**SVG DOM comparison** (`scripts/compare-svg-dom.js`):
-- `extractSvgStructure` — lightweight string-based SVG parser extracting critical attributes: `id`, `href`, `viewBox`, `mask`, `maskUnits`, `fill`, `stroke`, gradient attrs (`x1`, `y1`, `x2`, `y2`, `cx`, `cy`, `r`, `fx`, `fy`, `gradientUnits`, `gradientTransform`), filter attrs (`filter`, `filterUnits`), pattern attrs (`patternUnits`, `patternTransform`), clip-path attrs
-- Critical elements tracked: `svg`, `defs`, `linearGradient`, `radialGradient`, `stop`, `mask`, `clipPath`, `pattern`, `filter`, `feGaussianBlur`, `feOffset`, `feMerge`, `feMergeNode`, `path`, `rect`, `circle`, `ellipse`, `line`, `polyline`, `polygon`, `g`, `use`, `image`, `text`, `tspan`, `marker`, `symbol`
-- `compareSvgStructure` — compares viewBox, element count, element tag/attrs, gradient count, mask count, link count
-- `compareSvgDoms` — orchestrates SVG file listing + per-file structure extraction + comparison
-- `renderReport` — markdown report with added/removed SVG files and per-file DOM diffs + CODEOWNER notice
-
-Unit tests: 11 tests covering `extractSvgStructure`, `compareSvgStructure`, `listSvgFiles`, `compareSvgDoms` (integration).
-
-**Screenshots** — the `document-rendering` verification profile includes a `screenshot-capture` step (`npx playwright test --grep @screenshot --update-snapshots=false`). The CI workflow (`golden-file-comparison.yml`) runs this step with `--trace on` and uploads the Playwright output + trace as artifacts. Playwright's `toHaveScreenshot()` performs pixel-level visual diff comparison.
-
-CLI execution tests: 3 tests verifying `compare-artifacts.js` and `compare-svg-dom.js` exit 0 for identical dirs and exit 1 for different dirs.
-
-### 3. Artifacts uploaded (actual/expected/diff + trace)
-
-**Status:** PASS
-
-The CI workflow `.github/workflows/golden-file-comparison.yml` uploads all comparison artifacts:
-
-```yaml
-- name: Upload artifacts (actual + expected + diff + trace)
-  uses: actions/upload-artifact@v4
-  with:
-    name: golden-file-artifacts
-    path: |
-      artifacts/expected/
-      artifacts/actual/
-      artifacts/diff.md
-      artifacts/svg-diff.md
-      artifacts/playwright-output/
-      artifacts/playwright-report/
-    retention-days: 30
+node scripts/compare-svg-dom.js \
+  --expected artifacts/expected/output/ \
+  --actual artifacts/actual/output/ \
+  --report artifacts/svg-diff.md
 ```
 
-Artifacts include:
-- `artifacts/expected/` — corpus built at base SHA (file tree + HTML + SVG)
-- `artifacts/actual/` — corpus built at head SHA (file tree + HTML + SVG)
-- `artifacts/diff.md` — normalized HTML + file-tree + asset-link comparison report
-- `artifacts/svg-diff.md` — SVG DOM comparison report
-- `artifacts/playwright-output/` — screenshot test output
-- `artifacts/playwright-report/` — Playwright HTML report with traces
+Any difference exits non-zero and therefore blocks the workflow. A deliberate
+golden change must be committed and reviewed under the repository's CODEOWNER
+and branch/ruleset policy; the comparison workflow itself has read-only GitHub
+permissions and does not label or comment on pull requests.
 
-When differences are detected, the workflow also posts a PR comment with the full diff report and adds a `golden-file-change` label.
+## Browser screenshots
 
-### 4. CODEOWNER approval required for snapshot changes
+`tests/docs.spec.ts` contains real Chromium screenshot assertions for the large
+SVG reproducer and complex gradients. Their baselines live under
+`tests/__screenshots__/docs.spec.ts/chromium/`. The golden workflow runs them
+without updating snapshots:
 
-**Status:** PASS
-
-Three mechanisms enforce CODEOWNER approval:
-
-1. **Report-level notice** — both `compare-artifacts.js` and `compare-svg-dom.js` `renderReport` functions include a "CODEOWNER Approval Required" section in their markdown output, stating that golden-file changes require separate human confirmation and Dependabot cannot update snapshots independently.
-
-2. **CI workflow label** — `golden-file-comparison.yml` adds a `golden-file-change` label to the PR when differences are detected, making it visible in the PR's label set for CODEOWNER triage.
-
-3. **PR comment** — the workflow posts a structured comment with the diff report and an explicit "CODEOWNER Approval Required" section, including instructions to download artifacts for inspection.
-
-The verification profiles (`document-rendering` and `ecosystem`) document that the `artifact-compare` and `svg-dom-compare` steps are required (`required: true`), meaning a failing comparison blocks the profile from passing.
-
-### 5. Pinned Linux image for reproducibility
-
-**Status:** PASS
-
-The CI workflow uses a pinned container image for reproducible builds:
-
-```yaml
-container:
-  image: node:24-bookworm-slim
-  env:
-    CI: 'true'
+```bash
+npx playwright test --grep @screenshot --update-snapshots=false \
+  --output artifacts/playwright-output --trace on
 ```
 
-- `node:24-bookworm-slim` — Debian Bookworm slim image with Node.js 24 (pinned major version)
-- `runs-on: ubuntu-24.04` — pinned GitHub Actions runner OS
-- `PLAYWRIGHT_BROWSERS_PATH: /ms-playwright` — consistent browser install path
-- `npx playwright install --with-deps chromium` — pinned chromium install
+The workflow uploads expected and actual corpus trees, comparison reports,
+Playwright output and the HTML report for inspection.
 
-Both base and head corpus builds run in the same container image with the same Node.js version, browser, and fonts, ensuring that screenshot and HTML comparisons are reproducible (differences come from code changes, not environment drift).
+## Core-package downstream verification
 
-## Test Results
+`.github/workflows/downstream-check.yml` checks out the Diplodoc metapackage at
+`master`, records the base package export state and base corpus, replaces only
+the selected `cli`, `components` or `transform` submodule with the exact
+40-character PR SHA, and then:
 
-- **Golden File Comparison suite:** 44 passed, 0 failed (5.5s)
-  - `compare-artifacts` unit tests: 16
-  - `compare-svg-dom` unit tests: 11
-  - CLI execution tests: 3
-  - `build-corpus` module export tests: 2
-  - Verification profile integration tests: 3
-  - File-tree/HTML/asset-link integration tests: 9
-- **Typecheck:** PASS
-- **Build (esbuild):** PASS
-- **YAML validation:** PASS
+1. builds all metapackage workspaces;
+2. rejects newly missing `exports`, `main`, `module` or `types` targets;
+3. runs the changed package's own tests;
+4. builds the candidate corpus and runs the complete testpack E2E suite;
+5. runs downstream consumer checks plus normalized artifact and SVG comparison.
 
-## Deliverables
+The workflow does not install dependencies independently inside consumer
+directories, so it tests the actual metapackage dependency graph.
 
-| File | Type | Description |
-| --- | --- | --- |
-| `scripts/build-corpus.js` | New (untracked) | Builds reference corpus at a git ref |
-| `scripts/compare-artifacts.js` | New (untracked) | Compares file tree + normalized HTML + asset links |
-| `scripts/compare-svg-dom.js` | New (untracked) | Compares SVG DOM structure (id, href, viewBox, masks, gradients) |
-| `src/tests/golden-files/index.ts` | New (untracked) | 44 Playwright unit tests for all comparison helpers |
-| `src/tests/index.ts` | Modified (tracked) | Added `import './golden-files';` |
-| `.github/workflows/golden-file-comparison.yml` | New (untracked) | CI workflow with pinned Linux image, artifact upload, CODEOWNER enforcement |
+## Arcadia evidence
+
+Public GitHub Actions cannot execute internal Arcadia builds.
+`scripts/arcadia-check.js` therefore validates an external JSON result produced
+by the internal bridge. Evidence must match the exact package and PR SHA, use an
+HTTPS provider URL and contain at least one real consumer result. Missing,
+malformed or failing evidence exits non-zero and is reported as `UNVERIFIED`.
+
+## Local validation snapshot
+
+On 2026-09-05 the changed tree passed:
+
+- `npm test`: 1581 passed, 2 skipped, 0 failed;
+- `npm run typecheck`;
+- `npm run build`;
+- `npm run lint`: 0 errors and 0 warnings.
+
+The GitHub workflows were syntax-parsed locally. Their behavior with real
+GitHub rulesets, App permissions and the internal Arcadia bridge still requires
+the staged rollout described in the review handoff.

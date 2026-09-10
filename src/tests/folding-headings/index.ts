@@ -573,7 +573,7 @@ test.describe('Folding Headings', () => {
             for (let i = 0; i < count; i++) {
                 const id = await sections.nth(i).getAttribute('data-diplodoc-id');
                 expect(id).toBeTruthy();
-                ids.add(id!);
+                ids.add(id || '');
             }
 
             expect(ids.size).toBe(count);

@@ -160,9 +160,9 @@ const TOOLCHAIN_STEPS: VerificationStep[] = [
         id: 'package-types',
         name: 'All package types',
         description:
-            'Verify the package works as a subpath-export consumer for ' +
-            'every export type (CJS, ESM, types).',
-        command: 'node scripts/check-package-types.js',
+            'Verify that every declared package entry point and subpath ' +
+            'export resolves to a built file or wildcard directory.',
+        command: 'node devops/testpack/scripts/check-package-types.js --package-dir ${PACKAGE_DIR}',
         required: true,
         buildsOn: ['build'],
     },
@@ -288,7 +288,10 @@ const ECOSYSTEM_STEPS: VerificationStep[] = [
             'For core packages, run the downstream consumer test suites ' +
             'that depend on the changed package to catch breakages in ' +
             'consumers not covered by the metapackage build.',
-        command: 'node scripts/downstream-check.js --package ${PACKAGE_NAME}',
+        command:
+            'node devops/testpack/scripts/downstream-check.js --package ${PACKAGE_NAME} ' +
+            '--pr-sha ${HEAD_SHA} --metapackage-root ${METAPACKAGE_ROOT} ' +
+            '--expected ${EXPECTED_CORPUS} --actual ${ACTUAL_CORPUS}',
         required: true,
         buildsOn: ['metapackage-build'],
     },
@@ -298,9 +301,11 @@ const ECOSYSTEM_STEPS: VerificationStep[] = [
         description:
             'Verify the external impact on consumers in the Arcadia ' +
             'monorepo (Yandex internal VCS). Checks that the Diplodoc ' +
-            'package update does not break contrib library consumers. ' +
-            'Runs in dry-run mode when the arc CLI is not available.',
-        command: 'node scripts/arcadia-check.js --package ${PACKAGE_NAME} --dry-run',
+            'package update does not break real contrib consumers. The step ' +
+            'fails closed unless the internal bridge supplies evidence.',
+        command:
+            'node devops/testpack/scripts/arcadia-check.js --package ${PACKAGE_NAME} ' +
+            '--pr-sha ${HEAD_SHA} --result ${ARCADIA_RESULT}',
         required: true,
         buildsOn: ['metapackage-build'],
     },

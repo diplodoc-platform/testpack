@@ -1,7 +1,7 @@
 import {execSync} from 'child_process';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
-
 import {expect, test} from '@playwright/test';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -32,10 +32,10 @@ test.describe('Golden File Comparison', () => {
             expect(mIdx).toBeLessThan(zIdx);
         });
 
-        test('should strip script content', () => {
+        test('should preserve script content so runtime changes are detected', () => {
             const input = '<script>var x = 12345;</script><p>text</p>';
             const result = compareArtifacts.normalizeHtml(input);
-            expect(result).toBe('<script></script><p>text</p>');
+            expect(result).toContain('var x = 12345;');
         });
 
         test('should collapse style whitespace', () => {
@@ -93,21 +93,30 @@ test.describe('Golden File Comparison', () => {
 
     test.describe('compare-artifacts — diffFileTree', () => {
         test('should detect added files', () => {
-            const result = compareArtifacts.diffFileTree(['a.html', 'b.html'], ['a.html', 'b.html', 'c.html']);
+            const result = compareArtifacts.diffFileTree(
+                ['a.html', 'b.html'],
+                ['a.html', 'b.html', 'c.html'],
+            );
             expect(result.added).toEqual(['c.html']);
             expect(result.removed).toEqual([]);
             expect(result.common).toEqual(['a.html', 'b.html']);
         });
 
         test('should detect removed files', () => {
-            const result = compareArtifacts.diffFileTree(['a.html', 'b.html', 'c.html'], ['a.html']);
+            const result = compareArtifacts.diffFileTree(
+                ['a.html', 'b.html', 'c.html'],
+                ['a.html'],
+            );
             expect(result.added).toEqual([]);
             expect(result.removed).toEqual(['b.html', 'c.html']);
             expect(result.common).toEqual(['a.html']);
         });
 
         test('should detect no changes', () => {
-            const result = compareArtifacts.diffFileTree(['a.html', 'b.html'], ['a.html', 'b.html']);
+            const result = compareArtifacts.diffFileTree(
+                ['a.html', 'b.html'],
+                ['a.html', 'b.html'],
+            );
             expect(result.added).toEqual([]);
             expect(result.removed).toEqual([]);
             expect(result.common).toEqual(['a.html', 'b.html']);
@@ -172,6 +181,35 @@ test.describe('Golden File Comparison', () => {
             }
         });
 
+        test('should detect changed non-HTML asset bytes', () => {
+            const tmpDir = path.join(__dirname, '..', '..', '..', '.tmp-golden-binary');
+            const expectedDir = path.join(tmpDir, 'expected');
+            const actualDir = path.join(tmpDir, 'actual');
+
+            try {
+                fs.mkdirSync(expectedDir, {recursive: true});
+                fs.mkdirSync(actualDir, {recursive: true});
+                fs.writeFileSync(path.join(expectedDir, 'image.png'), Buffer.from([1, 2, 3]));
+                fs.writeFileSync(path.join(actualDir, 'image.png'), Buffer.from([1, 2, 4]));
+
+                const result = compareArtifacts.compareArtifacts(expectedDir, actualDir);
+                expect(result.hasDifferences).toBe(true);
+                expect(result.contentDiffs).toHaveLength(1);
+                expect(result.contentDiffs[0].file).toBe('image.png');
+            } finally {
+                fs.rmSync(tmpDir, {recursive: true, force: true});
+            }
+        });
+
+        test('should fail closed when either corpus directory is missing', () => {
+            expect(() =>
+                compareArtifacts.compareArtifacts('/missing/expected', DOCS_OUTPUT),
+            ).toThrow(/Expected artifact directory does not exist/);
+            expect(() => compareArtifacts.compareArtifacts(DOCS_OUTPUT, '/missing/actual')).toThrow(
+                /Actual artifact directory does not exist/,
+            );
+        });
+
         test('should detect added files', () => {
             const tmpDir = path.join(__dirname, '..', '..', '..', '.tmp-golden-test2');
             const expectedDir = path.join(tmpDir, 'expected');
@@ -196,7 +234,12 @@ test.describe('Golden File Comparison', () => {
 
     test.describe('compare-artifacts — renderReport', () => {
         test('should render no-differences report', () => {
-            const result = {fileTreeDiff: {added: [], removed: [], common: []}, htmlDiffs: [], assetLinkDiffs: [], hasDifferences: false};
+            const result = {
+                fileTreeDiff: {added: [], removed: [], common: []},
+                htmlDiffs: [],
+                assetLinkDiffs: [],
+                hasDifferences: false,
+            };
             const md = compareArtifacts.renderReport(result);
             expect(md).toContain('No differences detected');
         });
@@ -273,6 +316,23 @@ test.describe('Golden File Comparison', () => {
             expect(rect.attrs.id).toBe('r1');
             expect(rect.attrs.fill).toBe('red');
         });
+
+        test('should preserve sibling depth after a closing tag', () => {
+            const struct = compareSvgDom.extractSvgStructure(
+                '<svg><g><path id="nested"/></g><rect id="sibling"/></svg>',
+            );
+            expect(
+                struct.elements.map((element: {tag: string; depth: number}) => [
+                    element.tag,
+                    element.depth,
+                ]),
+            ).toEqual([
+                ['svg', 0],
+                ['g', 1],
+                ['path', 2],
+                ['rect', 1],
+            ]);
+        });
     });
 
     test.describe('compare-svg-dom — compareSvgStructure', () => {
@@ -290,8 +350,20 @@ test.describe('Golden File Comparison', () => {
         });
 
         test('should detect viewBox mismatch', () => {
-            const expected = {viewBox: '0 0 100 100', elements: [], gradients: [], masks: [], links: []};
-            const actual = {viewBox: '0 0 200 200', elements: [], gradients: [], masks: [], links: []};
+            const expected = {
+                viewBox: '0 0 100 100',
+                elements: [],
+                gradients: [],
+                masks: [],
+                links: [],
+            };
+            const actual = {
+                viewBox: '0 0 200 200',
+                elements: [],
+                gradients: [],
+                masks: [],
+                links: [],
+            };
             const result = compareSvgDom.compareSvgStructure(expected, actual);
             expect(result.identical).toBe(false);
             expect(result.diffs.some((d: string) => d.includes('viewBox'))).toBe(true);
@@ -307,7 +379,10 @@ test.describe('Golden File Comparison', () => {
             };
             const actual = {
                 viewBox: null,
-                elements: [{tag: 'rect', depth: 1, attrs: {}}, {tag: 'circle', depth: 1, attrs: {}}],
+                elements: [
+                    {tag: 'rect', depth: 1, attrs: {}},
+                    {tag: 'circle', depth: 1, attrs: {}},
+                ],
                 gradients: [],
                 masks: [],
                 links: [],
@@ -378,6 +453,39 @@ test.describe('Golden File Comparison', () => {
             const result = compareSvgDom.compareSvgDoms(DOCS_OUTPUT, DOCS_OUTPUT);
             expect(result.hasDifferences).toBe(false);
         });
+
+        test('should compare inline SVGs embedded in HTML', () => {
+            const tmpDir = path.join(__dirname, '..', '..', '..', '.tmp-inline-svg');
+            const expectedDir = path.join(tmpDir, 'expected');
+            const actualDir = path.join(tmpDir, 'actual');
+            try {
+                fs.mkdirSync(expectedDir, {recursive: true});
+                fs.mkdirSync(actualDir, {recursive: true});
+                fs.writeFileSync(
+                    path.join(expectedDir, 'index.html'),
+                    '<svg viewBox="0 0 10 10"><rect fill="red"/></svg>',
+                );
+                fs.writeFileSync(
+                    path.join(actualDir, 'index.html'),
+                    '<svg viewBox="0 0 10 10"><rect fill="blue"/></svg>',
+                );
+
+                const result = compareSvgDom.compareSvgDoms(expectedDir, actualDir);
+                expect(result.hasDifferences).toBe(true);
+                expect(result.svgDiffs[0].file).toBe('index.html#inline-svg-0');
+            } finally {
+                fs.rmSync(tmpDir, {recursive: true, force: true});
+            }
+        });
+
+        test('should fail closed when either SVG corpus directory is missing', () => {
+            expect(() => compareSvgDom.compareSvgDoms('/missing/expected', DOCS_OUTPUT)).toThrow(
+                /Expected SVG artifact directory does not exist/,
+            );
+            expect(() => compareSvgDom.compareSvgDoms(DOCS_OUTPUT, '/missing/actual')).toThrow(
+                /Actual SVG artifact directory does not exist/,
+            );
+        });
     });
 
     test.describe('CLI scripts — execution', () => {
@@ -386,7 +494,14 @@ test.describe('Golden File Comparison', () => {
                 test.skip(true, 'docs/output does not exist');
                 return;
             }
-            const script = path.join(__dirname, '..', '..', '..', 'scripts', 'compare-artifacts.js');
+            const script = path.join(
+                __dirname,
+                '..',
+                '..',
+                '..',
+                'scripts',
+                'compare-artifacts.js',
+            );
             const cmd = `node "${script}" --expected "${DOCS_OUTPUT}" --actual "${DOCS_OUTPUT}"`;
             expect(() => execSync(cmd, {encoding: 'utf-8'})).not.toThrow();
         });
@@ -412,7 +527,14 @@ test.describe('Golden File Comparison', () => {
                 fs.writeFileSync(path.join(expectedDir, 'test.html'), '<p>a</p>');
                 fs.writeFileSync(path.join(actualDir, 'test.html'), '<p>b</p>');
 
-                const script = path.join(__dirname, '..', '..', '..', 'scripts', 'compare-artifacts.js');
+                const script = path.join(
+                    __dirname,
+                    '..',
+                    '..',
+                    '..',
+                    'scripts',
+                    'compare-artifacts.js',
+                );
                 const cmd = `node "${script}" --expected "${expectedDir}" --actual "${actualDir}"`;
                 expect(() => execSync(cmd, {encoding: 'utf-8'})).toThrow();
             } finally {
@@ -428,9 +550,6 @@ test.describe('Golden File Comparison', () => {
             expect(typeof buildCorpus.resolveSha).toBe('function');
             expect(typeof buildCorpus.copyDir).toBe('function');
             expect(typeof buildCorpus.rmrf).toBe('function');
-            expect(typeof buildCorpus.hasUncommittedChanges).toBe('function');
-            expect(typeof buildCorpus.stashChanges).toBe('function');
-            expect(typeof buildCorpus.popStash).toBe('function');
             expect(typeof buildCorpus.writeMetadata).toBe('function');
             expect(typeof buildCorpus.buildCorpus).toBe('function');
         });
@@ -444,14 +563,27 @@ test.describe('Golden File Comparison', () => {
             expect(args.ref).toBe('HEAD');
             expect(args.output).toBe('artifacts/');
         });
+
+        test('resolveSha should not interpret the ref as a shell command', () => {
+            const buildCorpus = require('../../../scripts/build-corpus.js');
+            const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'build-corpus-ref-'));
+            const marker = path.join(tmpDir, 'injected');
+            try {
+                const maliciousRef = `HEAD"; touch "${marker}"; echo "`;
+                expect(() => buildCorpus.resolveSha(maliciousRef)).toThrow();
+                expect(fs.existsSync(marker)).toBe(false);
+            } finally {
+                fs.rmSync(tmpDir, {recursive: true, force: true});
+            }
+        });
     });
 
     test.describe('Verification profile integration', () => {
         test('document-rendering profile should reference build-corpus script', () => {
             const vp = require('../../../src/verification-profiles/index.js');
             const profile = vp.getProfile('document-rendering');
-            const corpusSteps = profile.steps.filter((s: {id: string}) =>
-                s.id.startsWith('corpus-build') || s.id === 'artifact-compare',
+            const corpusSteps = profile.steps.filter(
+                (s: {id: string}) => s.id.startsWith('corpus-build') || s.id === 'artifact-compare',
             );
             expect(corpusSteps.length).toBeGreaterThanOrEqual(3);
         });

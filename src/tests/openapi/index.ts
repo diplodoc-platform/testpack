@@ -26,7 +26,7 @@ test.describe('OpenAPI Sandbox', () => {
 
             const dataProps = await block.getAttribute('data-props');
             expect(dataProps).toBeTruthy();
-            expect(dataProps!.length).toBeGreaterThan(0);
+            expect((dataProps || '').length).toBeGreaterThan(0);
         });
 
         test('should encode GET method in data-props', async ({page}) => {
@@ -199,7 +199,7 @@ test.describe('OpenAPI Sandbox', () => {
             for (let i = 0; i < count; i++) {
                 const dataProps = await blocks.nth(i).getAttribute('data-props');
                 expect(dataProps).toBeTruthy();
-                expect(dataProps!.length).toBeGreaterThan(0);
+                expect((dataProps || '').length).toBeGreaterThan(0);
             }
         });
 
@@ -211,7 +211,8 @@ test.describe('OpenAPI Sandbox', () => {
                 const hasDirectText = await blocks.nth(i).evaluate((el) => {
                     return Array.from(el.childNodes).some(
                         (node) =>
-                            node.nodeType === Node.TEXT_NODE && node.textContent!.trim() !== '',
+                            node.nodeType === Node.TEXT_NODE &&
+                            (node.textContent || '').trim() !== '',
                     );
                 });
                 expect(hasDirectText).toBe(false);

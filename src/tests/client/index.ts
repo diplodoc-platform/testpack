@@ -172,7 +172,7 @@ test.describe('Client', () => {
         });
 
         test('should navigate to another page via sidebar link', async ({page}) => {
-            const tabsLink = page.locator('.dc-toc__list-item a', {hasText: 'Tabs'});
+            const tabsLink = page.locator('.dc-toc').getByRole('link', {name: 'Tabs', exact: true});
 
             await tabsLink.click();
 

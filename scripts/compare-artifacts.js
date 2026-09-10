@@ -22,8 +22,11 @@
 
 'use strict';
 
+/* eslint-disable no-console -- CLI diagnostics are part of this script's interface. */
+
 const fs = require('fs');
 const path = require('path');
+const {createHash} = require('crypto');
 
 /**
  * Parse command-line arguments into a key-value map.
@@ -85,14 +88,13 @@ function diffFileTree(expectedFiles, actualFiles) {
  * - Collapse whitespace runs
  * - Sort attributes within tags
  * - Remove leading/trailing whitespace per line
- * - Remove script content (volatile, contains build hashes)
+ * - Preserve script content so runtime changes remain visible
  * - Normalize self-closing tags
  * @param {string} html - Raw HTML content.
  * @returns {string} Normalized HTML.
  */
 function normalizeHtml(html) {
     return html
-        .replace(/<script[\s\S]*?<\/script>/g, '<script></script>')
         .replace(/<style[\s\S]*?<\/style>/g, (m) => {
             return m.replace(/\s+/g, ' ').trim();
         })
@@ -194,6 +196,10 @@ function compareAssetLinks(expectedPath, actualPath) {
     return {added, removed};
 }
 
+function fileHash(filePath) {
+    return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+}
+
 /**
  * Compare all artifacts between expected and actual directories.
  * @param {string} expectedDir - Expected (base) output directory.
@@ -201,17 +207,31 @@ function compareAssetLinks(expectedPath, actualPath) {
  * @returns {{fileTreeDiff: object, htmlDiffs: object[], assetLinkDiffs: object[], hasDifferences: boolean}}
  */
 function compareArtifacts(expectedDir, actualDir) {
+    if (!fs.existsSync(expectedDir) || !fs.statSync(expectedDir).isDirectory()) {
+        throw new Error(`Expected artifact directory does not exist: ${expectedDir}`);
+    }
+    if (!fs.existsSync(actualDir) || !fs.statSync(actualDir).isDirectory()) {
+        throw new Error(`Actual artifact directory does not exist: ${actualDir}`);
+    }
     const expectedFiles = listFiles(expectedDir);
     const actualFiles = listFiles(actualDir);
     const fileTreeDiff = diffFileTree(expectedFiles, actualFiles);
 
     const htmlDiffs = [];
     const assetLinkDiffs = [];
+    const contentDiffs = [];
 
     for (const file of fileTreeDiff.common) {
-        if (!file.endsWith('.html')) continue;
         const expectedPath = path.join(expectedDir, file);
         const actualPath = path.join(actualDir, file);
+        if (!file.endsWith('.html')) {
+            const expectedHash = fileHash(expectedPath);
+            const actualHash = fileHash(actualPath);
+            if (expectedHash !== actualHash) {
+                contentDiffs.push({file, expectedHash, actualHash});
+            }
+            continue;
+        }
         const result = compareHtmlFile(expectedPath, actualPath);
         if (!result.identical) {
             htmlDiffs.push({file, diff: result.diff});
@@ -226,9 +246,10 @@ function compareArtifacts(expectedDir, actualDir) {
         fileTreeDiff.added.length > 0 ||
         fileTreeDiff.removed.length > 0 ||
         htmlDiffs.length > 0 ||
-        assetLinkDiffs.length > 0;
+        assetLinkDiffs.length > 0 ||
+        contentDiffs.length > 0;
 
-    return {fileTreeDiff, htmlDiffs, assetLinkDiffs, hasDifferences};
+    return {fileTreeDiff, htmlDiffs, assetLinkDiffs, contentDiffs, hasDifferences};
 }
 
 /**
@@ -236,8 +257,10 @@ function compareArtifacts(expectedDir, actualDir) {
  * @param {object} result - Result from compareArtifacts.
  * @returns {string} Markdown report.
  */
+// eslint-disable-next-line complexity -- report sections mirror independent diff categories.
 function renderReport(result) {
     const lines = [];
+    const contentDiffs = result.contentDiffs || [];
     lines.push('# Golden File Comparison Report\n');
     lines.push(`Generated: ${new Date().toISOString()}\n`);
 
@@ -299,10 +322,18 @@ function renderReport(result) {
         }
     }
 
+    if (contentDiffs.length > 0) {
+        lines.push('### Asset Content Differences\n');
+        for (const diff of contentDiffs) {
+            lines.push(`- \`${diff.file}\` (SHA-256 changed)`);
+        }
+        lines.push('');
+    }
+
     lines.push('## CODEOWNER Approval Required\n');
     lines.push(
         'Any golden-file change requires separate human CODEOWNER confirmation. ' +
-        'Dependabot cannot update snapshots independently.\n',
+            'Dependabot cannot update snapshots independently.\n',
     );
 
     return lines.join('\n');
@@ -349,6 +380,7 @@ module.exports = {
     compareHtmlFile,
     extractAssetLinks,
     compareAssetLinks,
+    fileHash,
     compareArtifacts,
     renderReport,
     truncate,
