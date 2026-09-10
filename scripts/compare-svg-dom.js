@@ -22,6 +22,8 @@
 
 'use strict';
 
+/* eslint-disable no-console -- CLI diagnostics are part of this script's interface. */
+
 const fs = require('fs');
 const path = require('path');
 
@@ -134,8 +136,9 @@ const CRITICAL_ELEMENTS = new Set([
  * This is a lightweight string-based parser that extracts the critical
  * structure without requiring a full DOM parser.
  * @param {string} svgContent - Raw SVG file content.
- * @returns {{elements: Array, gradients: Array, masks: Array, links: Array, viewBox: string|null}}
+ * @returns {object} Normalized SVG structure.
  */
+// eslint-disable-next-line complexity -- token handling is intentionally centralized.
 function extractSvgStructure(svgContent) {
     const elements = [];
     const gradients = [];
@@ -150,13 +153,18 @@ function extractSvgStructure(svgContent) {
         const lt = svgContent.indexOf('<', charIndex);
         if (lt === -1) break;
 
-        if (svgContent[lt + 1] === '/' || svgContent[lt + 1] === '?') {
-            charIndex = lt + 1;
-            continue;
-        }
-
         const gt = svgContent.indexOf('>', lt);
         if (gt === -1) break;
+
+        if (svgContent[lt + 1] === '/') {
+            depth = Math.max(0, depth - 1);
+            charIndex = gt + 1;
+            continue;
+        }
+        if (svgContent[lt + 1] === '?' || svgContent.startsWith('<!--', lt)) {
+            charIndex = gt + 1;
+            continue;
+        }
 
         const tagContent = svgContent.slice(lt + 1, gt);
         const isSelfClosing = tagContent.endsWith('/');
@@ -197,7 +205,7 @@ function extractSvgStructure(svgContent) {
             }
         }
 
-        if (!isSelfClosing && !VOID_TAGS.has(tagName)) {
+        if (!isSelfClosing) {
             depth++;
         }
         charIndex = gt + 1;
@@ -205,8 +213,6 @@ function extractSvgStructure(svgContent) {
 
     return {elements, gradients, masks, links, viewBox};
 }
-
-const VOID_TAGS = new Set(['use', 'image', 'stop', 'path', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'feGaussianBlur', 'feOffset', 'feMergeNode']);
 
 /**
  * Extract attributes from a tag string.
@@ -262,14 +268,19 @@ function compareSvgStructure(expected, actual) {
             diffs.push(`element ${i} tag mismatch: expected <${expEl.tag}>, got <${actEl.tag}>`);
             continue;
         }
+        if (expEl.depth !== actEl.depth) {
+            diffs.push(
+                `element ${i} <${expEl.tag}> depth: expected ${expEl.depth}, got ${actEl.depth}`,
+            );
+        }
         const expAttrs = Object.keys(expEl.attrs).sort();
         const actAttrs = Object.keys(actEl.attrs).sort();
         for (const key of new Set([...expAttrs, ...actAttrs])) {
             if (expEl.attrs[key] !== actEl.attrs[key]) {
                 diffs.push(
                     `element ${i} <${expEl.tag}> attr "${key}": ` +
-                    `expected "${expEl.attrs[key] ?? '(missing)'}", ` +
-                    `got "${actEl.attrs[key] ?? '(missing)'}"`,
+                        `expected "${expEl.attrs[key] ?? '(missing)'}", ` +
+                        `got "${actEl.attrs[key] ?? '(missing)'}"`,
                 );
             }
         }
@@ -282,15 +293,11 @@ function compareSvgStructure(expected, actual) {
     }
 
     if (expected.masks.length !== actual.masks.length) {
-        diffs.push(
-            `mask count: expected ${expected.masks.length}, got ${actual.masks.length}`,
-        );
+        diffs.push(`mask count: expected ${expected.masks.length}, got ${actual.masks.length}`);
     }
 
     if (expected.links.length !== actual.links.length) {
-        diffs.push(
-            `link count: expected ${expected.links.length}, got ${actual.links.length}`,
-        );
+        diffs.push(`link count: expected ${expected.links.length}, got ${actual.links.length}`);
     }
 
     return {
@@ -300,14 +307,48 @@ function compareSvgStructure(expected, actual) {
 }
 
 /**
- * Compare SVG files between expected and actual directories.
- * @param {string} expectedDir - Expected (base) output directory.
- * @param {string} actualDir - Actual (head) output directory.
- * @returns {{svgDiffs: Array, addedFiles: string[], removedFiles: string[], hasDifferences: boolean}}
+ * Collect standalone SVG files and inline SVG fragments from an output tree.
+ * @param {string} dir - Output directory.
+ * @returns {Map<string, string>} Source id to SVG source.
  */
+function collectSvgSources(dir) {
+    const sources = new Map();
+    if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return sources;
+    function walk(base) {
+        for (const entry of fs.readdirSync(base, {withFileTypes: true})) {
+            const full = path.join(base, entry.name);
+            if (entry.isDirectory()) {
+                walk(full);
+                continue;
+            }
+            if (!entry.isFile()) continue;
+            const relative = path.relative(dir, full).split(path.sep).join('/');
+            if (entry.name.endsWith('.svg')) {
+                sources.set(relative, fs.readFileSync(full, 'utf-8'));
+            } else if (entry.name.endsWith('.html')) {
+                const html = fs.readFileSync(full, 'utf-8');
+                const matches = html.match(/<svg\b[\s\S]*?<\/svg>/gi) || [];
+                matches.forEach((svg, index) =>
+                    sources.set(`${relative}#inline-svg-${index}`, svg),
+                );
+            }
+        }
+    }
+    walk(dir);
+    return sources;
+}
+
 function compareSvgDoms(expectedDir, actualDir) {
-    const expectedFiles = listSvgFiles(expectedDir);
-    const actualFiles = listSvgFiles(actualDir);
+    if (!fs.existsSync(expectedDir) || !fs.statSync(expectedDir).isDirectory()) {
+        throw new Error(`Expected SVG artifact directory does not exist: ${expectedDir}`);
+    }
+    if (!fs.existsSync(actualDir) || !fs.statSync(actualDir).isDirectory()) {
+        throw new Error(`Actual SVG artifact directory does not exist: ${actualDir}`);
+    }
+    const expectedSources = collectSvgSources(expectedDir);
+    const actualSources = collectSvgSources(actualDir);
+    const expectedFiles = [...expectedSources.keys()].sort();
+    const actualFiles = [...actualSources.keys()].sort();
     const expectedSet = new Set(expectedFiles);
     const actualSet = new Set(actualFiles);
 
@@ -317,10 +358,8 @@ function compareSvgDoms(expectedDir, actualDir) {
 
     const svgDiffs = [];
     for (const file of commonFiles) {
-        const expectedPath = path.join(expectedDir, file);
-        const actualPath = path.join(actualDir, file);
-        const expectedContent = fs.readFileSync(expectedPath, 'utf-8');
-        const actualContent = fs.readFileSync(actualPath, 'utf-8');
+        const expectedContent = expectedSources.get(file);
+        const actualContent = actualSources.get(file);
         const expectedStruct = extractSvgStructure(expectedContent);
         const actualStruct = extractSvgStructure(actualContent);
         const result = compareSvgStructure(expectedStruct, actualStruct);
@@ -329,8 +368,7 @@ function compareSvgDoms(expectedDir, actualDir) {
         }
     }
 
-    const hasDifferences =
-        addedFiles.length > 0 || removedFiles.length > 0 || svgDiffs.length > 0;
+    const hasDifferences = addedFiles.length > 0 || removedFiles.length > 0 || svgDiffs.length > 0;
 
     return {svgDiffs, addedFiles, removedFiles, hasDifferences};
 }
@@ -381,7 +419,7 @@ function renderReport(result) {
     lines.push('## CODEOWNER Approval Required\n');
     lines.push(
         'SVG DOM changes (id, href, viewBox, masks, gradients) require ' +
-        'separate human CODEOWNER confirmation.\n',
+            'separate human CODEOWNER confirmation.\n',
     );
 
     return lines.join('\n');
@@ -394,9 +432,7 @@ function main() {
     const report = args.report;
 
     if (!expected || !actual) {
-        console.error(
-            'Usage: compare-svg-dom.js --expected <dir> --actual <dir> --report <path>',
-        );
+        console.error('Usage: compare-svg-dom.js --expected <dir> --actual <dir> --report <path>');
         process.exit(1);
     }
 
@@ -422,6 +458,7 @@ if (require.main === module) {
 module.exports = {
     parseArgs,
     listSvgFiles,
+    collectSvgSources,
     extractAttrs,
     extractSvgStructure,
     compareSvgStructure,

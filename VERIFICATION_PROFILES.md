@@ -1,7 +1,7 @@
 # Verification Profiles
 
 Verification profiles define the depth of automated verification applied to
-a Dependabot PR before it is considered safe to merge.  The profile is
+a Dependabot PR before it is considered safe to merge. The profile is
 selected based on the [risk classification](../devops/infra/scripts/risk-classification.js)
 (T6.2) of the changed dependency, with optional overrides for
 rendering-impacting and security-critical updates.
@@ -11,16 +11,16 @@ This document is generated from the canonical definitions in
 
 ## Profiles
 
-| Profile | Steps | Default risk | Extends |
-| ------- | ----- | ------------ | ------- |
-| `standard` | 6 | low | — |
-| `toolchain` | 8 | medium | standard |
-| `document-transform` | 11 | high | toolchain, standard |
-| `document-rendering` | 14 | — | document-transform, toolchain, standard |
-| `ecosystem` | 17 | critical | document-rendering, document-transform, toolchain, standard |
+| Profile              | Steps | Default risk | Extends                                                     |
+| -------------------- | ----- | ------------ | ----------------------------------------------------------- |
+| `standard`           | 6     | low          | —                                                           |
+| `toolchain`          | 8     | medium       | standard                                                    |
+| `document-transform` | 11    | high         | toolchain, standard                                         |
+| `document-rendering` | 14    | —            | document-transform, toolchain, standard                     |
+| `ecosystem`          | 18    | critical     | document-rendering, document-transform, toolchain, standard |
 
 > Profiles are **supersets**: a deeper profile contains every step from all
-> shallower profiles plus additional steps.  A deeper profile never skips a
+> shallower profiles plus additional steps. A deeper profile never skips a
 > step that a shallower profile requires.
 
 ## Profile selection
@@ -37,21 +37,21 @@ Selection order (first match wins):
    `isCorePackage` flag → `document-rendering`.
 5. **Default by risk** — see the mapping table below.
 
-| Risk | Default profile | When to use |
-| ---- | --------------- | ----------- |
-| `low` | `standard` | Types, lint plugins, dev-only deps (patch) |
-| `medium` | `toolchain` | Test runners, bundlers, dev-only minor bumps |
-| `high` | `document-transform` | Parsers, renderers, CLI, `svgo` |
-| `critical` | `ecosystem` | Security-sensitive runtime, major core bumps |
+| Risk       | Default profile      | When to use                                  |
+| ---------- | -------------------- | -------------------------------------------- |
+| `low`      | `standard`           | Types, lint plugins, dev-only deps (patch)   |
+| `medium`   | `toolchain`          | Test runners, bundlers, dev-only minor bumps |
+| `high`     | `document-transform` | Parsers, renderers, CLI, `svgo`              |
+| `critical` | `ecosystem`          | Security-sensitive runtime, major core bumps |
 
 ### Flags
 
-| Flag | Effect |
-| ---- | ------ |
-| `affectsRendering` | At `high` risk, selects `document-rendering` instead of `document-transform`.  Set for `svgo`, `@diplodoc/transform`, `@diplodoc/cli`. |
-| `isCorePackage` | Implies `affectsRendering`.  At `critical` risk, selects `ecosystem`.  Set for `@diplodoc/cli`, `@diplodoc/transform`, `@diplodoc/components`. |
-| `securityCritical` | At `critical` risk, selects `ecosystem`.  Set for vulnerability fixes on security-sensitive packages. |
-| `override` | Bypasses risk-based selection entirely.  Set from the registry entry's `verification-profile` field. |
+| Flag               | Effect                                                                                                                                       |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `affectsRendering` | At `high` risk, selects `document-rendering` instead of `document-transform`. Set for `svgo`, `@diplodoc/transform`, `@diplodoc/cli`.        |
+| `isCorePackage`    | Implies `affectsRendering`. At `critical` risk, selects `ecosystem`. Set for `@diplodoc/cli`, `@diplodoc/transform`, `@diplodoc/components`. |
+| `securityCritical` | At `critical` risk, selects `ecosystem`. Set for vulnerability fixes on security-sensitive packages.                                         |
+| `override`         | Bypasses risk-based selection entirely. Set from the registry entry's `verification-profile` field.                                          |
 
 ---
 
@@ -103,7 +103,7 @@ works as a published artifact, not just in the workspace.
 7. **All package types** (`package-types`) — Verify the package works as a
    subpath-export consumer for every export type (CJS, ESM, types).
    ```bash
-   node scripts/check-package-types.js
+   node devops/testpack/scripts/check-package-types.js --package-dir ${PACKAGE_DIR}
    ```
 8. **Standalone install** (`standalone-install`) — Install the published
    tarball in an empty directory to verify no workspace-only dependencies
@@ -136,7 +136,7 @@ output regressions by diffing the build output.
     node scripts/build-corpus.js --ref ${HEAD_SHA} --output artifacts/actual/
     ```
 11. **Normalized artifact comparison** (`artifact-compare`) — Compare the
-    output file tree and normalized HTML between base and head builds.  Any
+    output file tree and normalized HTML between base and head builds. Any
     diff in the golden files requires human CODEOWNER approval.
     ```bash
     node scripts/compare-artifacts.js --expected artifacts/expected/ --actual artifacts/actual/ --report artifacts/diff.md
@@ -160,7 +160,7 @@ invisible to the artifact diff (e.g. SVG structure, layout shifts).
     npx playwright test --project=chromium
     ```
 13. **SVG DOM comparison** (`svg-dom-compare`) — Compare the SVG DOM
-    structure of rendered diagrams between base and head builds.  Specifically
+    structure of rendered diagrams between base and head builds. Specifically
     targets `svgo` regressions on large SVG diagrams (upstream issue
     svg/svgo#2218).
     ```bash
@@ -168,7 +168,7 @@ invisible to the artifact diff (e.g. SVG structure, layout shifts).
     ```
 14. **Screenshot capture and diff** (`screenshot-capture`) — Capture
     full-page screenshots of key pages and diff them against the base
-    screenshots.  Upload actual/expected/diff plus the Playwright trace as CI
+    screenshots. Upload actual/expected/diff plus the Playwright trace as CI
     artifacts.
     ```bash
     npx playwright test --grep @screenshot --update-snapshots=false
@@ -202,7 +202,21 @@ reserved for critical core/security updates.
     package to catch breakages in consumers not covered by the metapackage
     build.
     ```bash
-    node scripts/downstream-check.js --package ${PACKAGE_NAME}
+    node devops/testpack/scripts/downstream-check.js \
+      --package ${PACKAGE_NAME} \
+      --pr-sha ${HEAD_SHA} \
+      --metapackage-root ${METAPACKAGE_ROOT} \
+      --expected ${EXPECTED_CORPUS} \
+      --actual ${ACTUAL_CORPUS}
+    ```
+18. **Arcadia external check** (`arcadia-external-check`) — Validate structured
+    evidence produced by the internal Arcadia bridge for each affected real
+    consumer. Missing or malformed evidence fails closed.
+    ```bash
+    node devops/testpack/scripts/arcadia-check.js \
+      --package ${PACKAGE_NAME} \
+      --pr-sha ${HEAD_SHA} \
+      --result ${ARCADIA_RESULT}
     ```
 
 ---
@@ -212,7 +226,7 @@ reserved for critical core/security updates.
 ### Risk assessment (T6.1–T6.3)
 
 The risk assessment comment posted on each Dependabot PR includes a
-`Verification Profile` field.  The profile is selected by
+`Verification Profile` field. The profile is selected by
 `selectVerificationProfile` in
 [`devops/infra/scripts/dependency-policy-review.js`](../devops/infra/scripts/dependency-policy-review.js),
 which:
@@ -220,20 +234,16 @@ which:
 1. Checks each registry entry's `verification-profile` field (explicit
    override).
 2. Falls back to `DEFAULT_PROFILE_BY_RISK` (low→standard,
-   medium→standard-integration, high→deep, critical→full-security).
+   medium→toolchain, high→document-transform, critical→ecosystem).
 
-> Note: the infra risk-assessment profile names (`standard`,
-> `standard-integration`, `deep`, `full-security`) are abstract labels used
-> in the PR comment.  The five profiles defined here (`standard`,
-> `toolchain`, `document-transform`, `document-rendering`, `ecosystem`) are
-> the **concrete verification definitions** with documented steps.  A future
-> task will align the infra labels with these concrete profile ids.
+The profile ids reported by infra are the same concrete ids defined here, so
+the PR comment can be mapped directly to an executable verification policy.
 
 ### Policy registry (T4.1)
 
 Registry entries in
 [`devops/infra/dependency-policy.yml`](../devops/infra/dependency-policy.yml)
-can set `verification-profile` to pin a specific profile.  For example,
+can set `verification-profile` to pin a specific profile. For example,
 `DEP-0001` (svgo) uses `document-rendering` because `svgo` regressions only
 manifest on large SVG diagrams not present in the default testpack fixtures.
 
@@ -241,7 +251,7 @@ manifest on large SVG diagrams not present in the default testpack fixtures.
 
 Golden-file changes produced by the `document-transform` and
 `document-rendering` profiles require **human CODEOWNER approval** before
-merge.  This is enforced by the `artifact-compare` and `svg-dom-compare`
+merge. This is enforced by the `artifact-compare` and `svg-dom-compare`
 steps, which fail the build when a diff is detected.
 
 ## Module API
@@ -251,14 +261,14 @@ The profiles and selection logic are exported from
 
 ```typescript
 import {
-    VERIFICATION_PROFILES,
-    selectProfile,
-    getProfile,
-    listStepIds,
-    hasStep,
-    isSupersetOf,
-    renderProfilesMarkdown,
-    renderStepsMarkdown,
+  VERIFICATION_PROFILES,
+  selectProfile,
+  getProfile,
+  listStepIds,
+  hasStep,
+  isSupersetOf,
+  renderProfilesMarkdown,
+  renderStepsMarkdown,
 } from '@diplodoc/testpack/verification-profiles';
 
 // Select a profile by risk level

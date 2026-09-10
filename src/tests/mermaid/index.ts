@@ -289,7 +289,7 @@ test.describe('Mermaid', () => {
             for (let i = 0; i < count; i++) {
                 const dataContent = await divs.nth(i).getAttribute('data-content');
                 expect(dataContent).toBeTruthy();
-                expect(dataContent!.length).toBeGreaterThan(0);
+                expect((dataContent || '').length).toBeGreaterThan(0);
             }
         });
 

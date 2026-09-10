@@ -174,7 +174,7 @@ test.describe('Page Constructor', () => {
             for (let i = 0; i < count; i++) {
                 const dataContent = await blocks.nth(i).getAttribute('data-content-encoded');
                 expect(dataContent).toBeTruthy();
-                expect(dataContent!.length).toBeGreaterThan(0);
+                expect((dataContent || '').length).toBeGreaterThan(0);
             }
         });
 
@@ -186,7 +186,8 @@ test.describe('Page Constructor', () => {
                 const hasDirectText = await blocks.nth(i).evaluate((el) => {
                     return Array.from(el.childNodes).some(
                         (node) =>
-                            node.nodeType === Node.TEXT_NODE && node.textContent!.trim() !== '',
+                            node.nodeType === Node.TEXT_NODE &&
+                            (node.textContent || '').trim() !== '',
                     );
                 });
                 expect(hasDirectText).toBe(false);

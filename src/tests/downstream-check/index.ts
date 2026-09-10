@@ -311,6 +311,19 @@ test.describe('Downstream Check', () => {
             expect(result.error).toContain('Unknown core package');
             expect(result.summary.total).toBe(0);
         });
+
+        test('should reject a non-full PR SHA', () => {
+            const result = downstreamCheck.runDownstreamCheck('transform', {
+                prSha: 'abc123',
+                metapackageRoot: METAPACKAGE_ROOT,
+                skipBuild: true,
+                skipTests: true,
+                skipCorpus: true,
+            });
+            expect(result.passed).toBe(false);
+            expect(result.error).toContain('40-character');
+            expect(result.summary.total).toBe(0);
+        });
     });
 
     test.describe('runDownstreamCheck — skip flags', () => {
@@ -395,7 +408,7 @@ test.describe('Downstream Check', () => {
             expect(result.passed).toBe(true);
         });
 
-        test('should skip corpus when dirs do not exist', () => {
+        test('should fail closed when corpus directories do not exist', () => {
             const result = downstreamCheck.runDownstreamCheck('transform', {
                 metapackageRoot: METAPACKAGE_ROOT,
                 skipBuild: true,
@@ -405,7 +418,9 @@ test.describe('Downstream Check', () => {
             });
             expect(result.semanticComparison).toBeNull();
             expect(result.visualComparison).toBeNull();
-            expect(result.corpusPassed).toBe(true);
+            expect(result.corpusPassed).toBe(false);
+            expect(result.corpusError).toMatch(/does not exist/);
+            expect(result.passed).toBe(false);
         });
     });
 

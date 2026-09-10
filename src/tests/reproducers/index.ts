@@ -101,6 +101,15 @@ test.describe('Reproducer Fixtures', () => {
             expect(count).toBeGreaterThanOrEqual(50);
         });
 
+        test('@screenshot should preserve the large SVG rendering', async ({page}) => {
+            const svg = page.locator('#svgo-large-diagram + p svg');
+
+            await expect(svg).toBeVisible();
+            await expect(svg).toHaveScreenshot('svgo-large-diagram.png', {
+                animations: 'disabled',
+            });
+        });
+
         test('should render fixture characteristics table', async ({page}) => {
             const table = page.locator('#svgo-large-diagram ~ table').first();
 
@@ -157,6 +166,15 @@ test.describe('Reproducer Fixtures', () => {
             const filter = svg.locator('filter');
 
             await expect(filter).toHaveCount(1);
+        });
+
+        test('@screenshot should preserve gradients and filters', async ({page}) => {
+            const svg = page.locator('#complex-gradients + p svg');
+
+            await expect(svg).toBeVisible();
+            await expect(svg).toHaveScreenshot('complex-gradients.png', {
+                animations: 'disabled',
+            });
         });
 
         test('should render fixture characteristics table', async ({page}) => {
@@ -299,10 +317,7 @@ test.describe('Reproducer Fixtures', () => {
 
             const count = await svgs.count();
             for (let i = 0; i < count; i++) {
-                await expect(svgs.nth(i)).toHaveAttribute(
-                    'xmlns',
-                    'http://www.w3.org/2000/svg',
-                );
+                await expect(svgs.nth(i)).toHaveAttribute('xmlns', 'http://www.w3.org/2000/svg');
             }
         });
 
@@ -313,7 +328,7 @@ test.describe('Reproducer Fixtures', () => {
             for (let i = 0; i < count; i++) {
                 const viewBox = await svgs.nth(i).getAttribute('viewBox');
                 expect(viewBox).toBeTruthy();
-                expect(viewBox!.length).toBeGreaterThan(0);
+                expect((viewBox || '').length).toBeGreaterThan(0);
             }
         });
     });

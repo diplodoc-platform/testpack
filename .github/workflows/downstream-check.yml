@@ -5,8 +5,8 @@ name: Downstream Check
 # package submodule with the PR SHA, builds all downstream consumers, and runs
 # semantic + visual comparison of the testpack corpus.
 #
-# This workflow is reusable — called from core package repos via workflow_run
-# or repository_dispatch, or triggered manually with workflow_dispatch.
+# This workflow is reusable — called from core package repositories through
+# workflow_call, or triggered manually with workflow_dispatch.
 
 on:
   workflow_dispatch:
@@ -21,7 +21,7 @@ on:
           - cli
       pr-sha:
         description: 'PR commit SHA to replace the submodule with'
-        required: false
+        required: true
         type: string
       pr-number:
         description: 'PR number for reporting (optional)'
@@ -35,7 +35,7 @@ on:
         type: string
       pr-sha:
         description: 'PR commit SHA to replace the submodule with'
-        required: false
+        required: true
         type: string
       pr-number:
         description: 'PR number for reporting (optional)'
@@ -44,24 +44,28 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   downstream-check:
     name: Downstream Check (${{ inputs.package }})
     runs-on: ubuntu-24.04
-    container:
-      image: node:24-bookworm-slim
-      env:
-        CI: 'true'
     env:
+      CI: 'true'
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
     steps:
       - name: Checkout metapackage (with submodules)
         uses: actions/checkout@v5
         with:
+          repository: diplodoc-platform/diplodoc
+          ref: master
           submodules: recursive
           fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -74,21 +78,29 @@ jobs:
         run: |
           BASE_SHA=$(git rev-parse HEAD)
           echo "base-sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
-          if [ -n "${{ inputs.pr-sha }}" ]; then
-            echo "head-sha=${{ inputs.pr-sha }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "head-sha=${BASE_SHA}" >> "$GITHUB_OUTPUT"
+          if [[ ! "${{ inputs.pr-sha }}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "pr-sha must be a full 40-character hexadecimal commit SHA"
+            exit 1
           fi
+          echo "head-sha=${{ inputs.pr-sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Record base package export state
+        run: |
+          npm run build --workspace "@diplodoc/${{ inputs.package }}"
+          node devops/testpack/scripts/check-package-types.js \
+            --package-dir "packages/${{ inputs.package }}" \
+            --output artifacts/base-package-targets.json \
+            --allow-invalid
 
       - name: Build corpus (base SHA — expected)
         run: |
           cd devops/testpack
           npm ci
           npm run docs
-          cp -r docs/output ${{ github.workspace }}/artifacts/expected/output
+          mkdir -p "${{ github.workspace }}/artifacts/expected"
+          cp -r docs/output "${{ github.workspace }}/artifacts/expected/output"
 
       - name: Replace submodule with PR SHA
-        if: inputs.pr-sha != ''
         run: |
           PACKAGE="${{ inputs.package }}"
           case "${PACKAGE}" in
@@ -99,13 +111,33 @@ jobs:
           esac
           cd "${SUBMODULE}"
           git fetch origin
-          git checkout "${{ inputs.pr-sha }}"
-          cd ${{ github.workspace }}
+          git checkout --detach "${{ inputs.pr-sha }}"
+          cd "${{ github.workspace }}"
 
       - name: Rebuild metapackage dependencies
         run: |
           npm ci
           npm run build --workspaces
+
+      - name: Verify built package exports from the real workspace
+        run: |
+          node devops/testpack/scripts/check-package-types.js \
+            --package-dir "packages/${{ inputs.package }}" \
+            --baseline artifacts/base-package-targets.json
+
+      - name: Run changed package tests
+        run: npm test --workspace "@diplodoc/${{ inputs.package }}" --if-present
+
+      - name: Build corpus (candidate SHA — actual)
+        run: |
+          cd devops/testpack
+          npm run docs
+          mkdir -p "${{ github.workspace }}/artifacts/actual"
+          cp -r docs/output "${{ github.workspace }}/artifacts/actual/output"
+
+      - name: Run candidate testpack E2E and visual regression
+        run: npm test
+        working-directory: devops/testpack
 
       - name: Run downstream check
         id: downstream
@@ -115,7 +147,7 @@ jobs:
             --package "${{ inputs.package }}" \
             --pr-sha "${{ inputs.pr-sha }}" \
             --expected artifacts/expected/output/ \
-            --actual devops/testpack/docs/output/ \
+            --actual artifacts/actual/output/ \
             --output artifacts/downstream/ \
             --report artifacts/downstream-report.md
 
@@ -128,32 +160,16 @@ jobs:
             artifacts/downstream/
             artifacts/downstream-report.md
             artifacts/expected/
+            artifacts/actual/
+            artifacts/base-package-targets.json
           retention-days: 30
 
-      - name: Post downstream check report as PR comment
-        if: always() && inputs.pr-number != '' && steps.downstream.outcome == 'failure'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Write downstream report to job summary
+        if: always()
         run: |
           if [ -f artifacts/downstream-report.md ]; then
-            {
-              echo "## Downstream Check — ${{ inputs.package }} — FAILED"
-              echo ""
-              cat artifacts/downstream-report.md
-              echo ""
-              echo "### CODEOWNER Review Required"
-              echo "Downstream check failures require human CODEOWNER review."
-              echo "Download the **downstream-check-${{ inputs.package }}** artifacts for details."
-            } | gh pr comment ${{ inputs.pr-number }} --body-file -
+            cat artifacts/downstream-report.md >> "$GITHUB_STEP_SUMMARY"
           fi
-
-      - name: Add downstream-check-failed label
-        if: always() && inputs.pr-number != '' && steps.downstream.outcome == 'failure'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh pr edit ${{ inputs.pr-number }} \
-            --add-label "downstream-check-failed" || true
 
       - name: Fail if downstream check failed
         if: steps.downstream.outcome == 'failure'
