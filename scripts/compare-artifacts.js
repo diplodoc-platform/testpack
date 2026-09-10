@@ -84,6 +84,51 @@ function diffFileTree(expectedFiles, actualFiles) {
 }
 
 /**
+ * Map build-specific artifact names to a stable comparison identity.
+ * The search resources filename contains a build timestamp, while its contents
+ * still point to the content-addressed index and registry files.
+ * @param {string} file - Relative artifact path.
+ * @returns {string} Stable relative artifact path.
+ */
+function canonicalArtifactPath(file) {
+    return file.replace(/(^|\/)\d{13}-resources\.js$/, '$1__generated__-resources.js');
+}
+
+/**
+ * Index original paths by their stable comparison identity.
+ * @param {string[]} files - Relative artifact paths.
+ * @returns {Map<string, string>} Canonical path to original path.
+ */
+function indexArtifactPaths(files) {
+    const groups = new Map();
+    for (const file of files) {
+        const canonical = canonicalArtifactPath(file);
+        groups.set(canonical, [...(groups.get(canonical) || []), file]);
+    }
+
+    const result = new Map();
+    for (const [canonical, originals] of groups) {
+        if (originals.length === 1) {
+            result.set(canonical, originals[0]);
+        } else {
+            // Accumulated local output may contain resources from older builds.
+            // Preserve those paths rather than hiding or conflating them.
+            for (const original of originals) result.set(original, original);
+        }
+    }
+    return result;
+}
+
+/**
+ * Remove build timestamps from references embedded in generated text.
+ * @param {string} content - Generated text content.
+ * @returns {string} Stable content for comparison.
+ */
+function normalizeGeneratedReferences(content) {
+    return content.replace(/\b\d{13}-resources\.js\b/g, '__generated__-resources.js');
+}
+
+/**
  * Normalize HTML for comparison:
  * - Collapse whitespace runs
  * - Sort attributes within tags
@@ -94,7 +139,7 @@ function diffFileTree(expectedFiles, actualFiles) {
  * @returns {string} Normalized HTML.
  */
 function normalizeHtml(html) {
-    return html
+    return normalizeGeneratedReferences(html)
         .replace(/<style[\s\S]*?<\/style>/g, (m) => {
             return m.replace(/\s+/g, ' ').trim();
         })
@@ -175,7 +220,7 @@ function extractAssetLinks(html) {
     const re = /(?:src|href)=["']([^"']+)["']/g;
     let m;
     while ((m = re.exec(html)) !== null) {
-        links.push(m[1]);
+        links.push(normalizeGeneratedReferences(m[1]));
     }
     return links.sort();
 }
@@ -196,8 +241,20 @@ function compareAssetLinks(expectedPath, actualPath) {
     return {added, removed};
 }
 
-function fileHash(filePath) {
-    return createHash('sha256').update(fs.readFileSync(filePath)).digest('hex');
+function fileHash(filePath, relativePath = '') {
+    const raw = fs.readFileSync(filePath);
+    let content = raw;
+    if (relativePath.endsWith('/toc.js') || relativePath === 'toc.js') {
+        content = Buffer.from(
+            raw
+                .toString('utf-8')
+                .replace(
+                    /\b[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi,
+                    '__generated_uuid__',
+                ),
+        );
+    }
+    return createHash('sha256').update(content).digest('hex');
 }
 
 /**
@@ -213,20 +270,23 @@ function compareArtifacts(expectedDir, actualDir) {
     if (!fs.existsSync(actualDir) || !fs.statSync(actualDir).isDirectory()) {
         throw new Error(`Actual artifact directory does not exist: ${actualDir}`);
     }
-    const expectedFiles = listFiles(expectedDir);
-    const actualFiles = listFiles(actualDir);
-    const fileTreeDiff = diffFileTree(expectedFiles, actualFiles);
+    const expectedFiles = indexArtifactPaths(listFiles(expectedDir));
+    const actualFiles = indexArtifactPaths(listFiles(actualDir));
+    const fileTreeDiff = diffFileTree(
+        [...expectedFiles.keys()].sort(),
+        [...actualFiles.keys()].sort(),
+    );
 
     const htmlDiffs = [];
     const assetLinkDiffs = [];
     const contentDiffs = [];
 
     for (const file of fileTreeDiff.common) {
-        const expectedPath = path.join(expectedDir, file);
-        const actualPath = path.join(actualDir, file);
+        const expectedPath = path.join(expectedDir, expectedFiles.get(file));
+        const actualPath = path.join(actualDir, actualFiles.get(file));
         if (!file.endsWith('.html')) {
-            const expectedHash = fileHash(expectedPath);
-            const actualHash = fileHash(actualPath);
+            const expectedHash = fileHash(expectedPath, file);
+            const actualHash = fileHash(actualPath, file);
             if (expectedHash !== actualHash) {
                 contentDiffs.push({file, expectedHash, actualHash});
             }
@@ -375,6 +435,9 @@ module.exports = {
     parseArgs,
     listFiles,
     diffFileTree,
+    canonicalArtifactPath,
+    indexArtifactPaths,
+    normalizeGeneratedReferences,
     normalizeHtml,
     sortAttributes,
     compareHtmlFile,

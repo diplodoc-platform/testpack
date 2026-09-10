@@ -56,7 +56,7 @@ SVG reproducer and complex gradients. Their baselines live under
 without updating snapshots:
 
 ```bash
-npx playwright test --grep @screenshot --update-snapshots=false \
+npx playwright test --grep @screenshot --update-snapshots=none \
   --output artifacts/playwright-output --trace on
 ```
 

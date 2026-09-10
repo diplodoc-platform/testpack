@@ -171,7 +171,7 @@ invisible to the artifact diff (e.g. SVG structure, layout shifts).
     screenshots. Upload actual/expected/diff plus the Playwright trace as CI
     artifacts.
     ```bash
-    npx playwright test --grep @screenshot --update-snapshots=false
+    npx playwright test --grep @screenshot --update-snapshots=none
     ```
 
 ---
