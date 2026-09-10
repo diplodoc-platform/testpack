@@ -252,7 +252,7 @@ const DOCUMENT_RENDERING_STEPS: VerificationStep[] = [
             'Capture full-page screenshots of key pages and diff them ' +
             'against the base screenshots.  Upload actual/expected/diff ' +
             'plus the Playwright trace as CI artifacts.',
-        command: 'npx playwright test --grep @screenshot --update-snapshots=false',
+        command: 'npx playwright test --grep @screenshot --update-snapshots=none',
         required: true,
         buildsOn: ['browser-visual-regression'],
     },

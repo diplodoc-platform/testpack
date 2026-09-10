@@ -123,6 +123,27 @@ test.describe('Golden File Comparison', () => {
         });
     });
 
+    test.describe('compare-artifacts — generated values', () => {
+        test('should canonicalize timestamped search resource filenames and references', () => {
+            expect(
+                compareArtifacts.canonicalArtifactPath('_search/ru/1789031349764-resources.js'),
+            ).toBe('_search/ru/__generated__-resources.js');
+            expect(
+                compareArtifacts.normalizeGeneratedReferences(
+                    '<script src="_search/ru/1789031349764-resources.js"></script>',
+                ),
+            ).toContain('_search/ru/__generated__-resources.js');
+        });
+
+        test('should preserve ambiguous paths from accumulated local output', () => {
+            const paths = [
+                '_search/ru/1789031349764-resources.js',
+                '_search/ru/1789031362748-resources.js',
+            ];
+            expect([...compareArtifacts.indexArtifactPaths(paths).keys()]).toEqual(paths);
+        });
+    });
+
     test.describe('compare-artifacts — extractAssetLinks', () => {
         test('should extract src and href links', () => {
             const html = '<img src="foo.png"><a href="bar.html">link</a>';
@@ -196,6 +217,61 @@ test.describe('Golden File Comparison', () => {
                 expect(result.hasDifferences).toBe(true);
                 expect(result.contentDiffs).toHaveLength(1);
                 expect(result.contentDiffs[0].file).toBe('image.png');
+            } finally {
+                fs.rmSync(tmpDir, {recursive: true, force: true});
+            }
+        });
+
+        test('should ignore only known generated search timestamps and toc UUIDs', () => {
+            const tmpDir = path.join(__dirname, '..', '..', '..', '.tmp-golden-generated');
+            const expectedDir = path.join(tmpDir, 'expected');
+            const actualDir = path.join(tmpDir, 'actual');
+            const expectedSearchDir = path.join(expectedDir, '_search', 'ru');
+            const actualSearchDir = path.join(actualDir, '_search', 'ru');
+
+            try {
+                fs.mkdirSync(expectedSearchDir, {recursive: true});
+                fs.mkdirSync(actualSearchDir, {recursive: true});
+                fs.mkdirSync(path.join(expectedDir, 'ru'), {recursive: true});
+                fs.mkdirSync(path.join(actualDir, 'ru'), {recursive: true});
+
+                fs.writeFileSync(
+                    path.join(expectedSearchDir, '1789031349764-resources.js'),
+                    'window.resources = {index: "same-index.js"};',
+                );
+                fs.writeFileSync(
+                    path.join(actualSearchDir, '1789031362748-resources.js'),
+                    'window.resources = {index: "same-index.js"};',
+                );
+                fs.writeFileSync(
+                    path.join(expectedDir, 'index.html'),
+                    '<script src="_search/ru/1789031349764-resources.js"></script>',
+                );
+                fs.writeFileSync(
+                    path.join(actualDir, 'index.html'),
+                    '<script src="_search/ru/1789031362748-resources.js"></script>',
+                );
+                fs.writeFileSync(
+                    path.join(expectedDir, 'ru', 'toc.js'),
+                    'window.toc = {id: "123e4567-e89b-42d3-a456-426614174000"};',
+                );
+                fs.writeFileSync(
+                    path.join(actualDir, 'ru', 'toc.js'),
+                    'window.toc = {id: "987e6543-e21b-42d3-b456-426614174999"};',
+                );
+
+                const result = compareArtifacts.compareArtifacts(expectedDir, actualDir);
+                expect(result.hasDifferences).toBe(false);
+
+                fs.writeFileSync(
+                    path.join(actualSearchDir, '1789031362748-resources.js'),
+                    'window.resources = {index: "changed-index.js"};',
+                );
+                const changedResult = compareArtifacts.compareArtifacts(expectedDir, actualDir);
+                expect(changedResult.hasDifferences).toBe(true);
+                expect(changedResult.contentDiffs[0].file).toBe(
+                    '_search/ru/__generated__-resources.js',
+                );
             } finally {
                 fs.rmSync(tmpDir, {recursive: true, force: true});
             }

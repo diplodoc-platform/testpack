@@ -79,7 +79,7 @@ jobs:
         env:
           PLAYWRIGHT_HTML_REPORT: artifacts/playwright-report
         run: |
-          npx playwright test --grep @screenshot --update-snapshots=false \
+          npx playwright test --grep @screenshot --update-snapshots=none \
             --output artifacts/playwright-output \
             --trace on
 
