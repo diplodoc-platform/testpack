@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import {expect, test} from '@playwright/test';
 
@@ -6,9 +7,25 @@ import {expect, test} from '@playwright/test';
 const downstreamCheck = require('../../../scripts/downstream-check.js');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
-const METAPACKAGE_ROOT = path.join(__dirname, '..', '..', '..', '..', '..');
+const METAPACKAGE_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-downstream-'));
+const FIXTURE_PATHS = new Set([
+    'packages',
+    'extensions',
+    'devops',
+    ...(Object.values(downstreamCheck.CORE_PACKAGE_PATHS) as string[]),
+    ...(Object.values(downstreamCheck.DOWNSTREAM_CONSUMERS).flat() as string[]),
+]);
+
+fs.writeFileSync(path.join(METAPACKAGE_ROOT, 'package.json'), '{}\n');
+for (const fixturePath of FIXTURE_PATHS) {
+    fs.mkdirSync(path.join(METAPACKAGE_ROOT, fixturePath), {recursive: true});
+}
 
 test.describe('Downstream Check', () => {
+    test.afterAll(() => {
+        fs.rmSync(METAPACKAGE_ROOT, {recursive: true, force: true});
+    });
+
     test.describe('CORE_PACKAGES', () => {
         test('should define exactly 3 core packages', () => {
             expect(downstreamCheck.CORE_PACKAGES).toHaveLength(3);

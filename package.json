@@ -44,6 +44,7 @@
     "@playwright/test": "^1.60.0"
   },
   "devDependencies": {
+    "@diplodoc/cli": "5.57.3",
     "@diplodoc/folding-headings-extension": "^0.2.5",
     "@diplodoc/infra": "2.2.3",
     "@diplodoc/quote-link-extension": "^0.1.8",
