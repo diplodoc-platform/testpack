@@ -132,7 +132,7 @@ function normalizeBuildSpecificValues(content) {
         )
         .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, 'UUID')
         .replace(
-            /\b(defaultTabsGroup|regular|dropdown|accordion)-[a-z0-9]{8}\b/gi,
+            /\b(defaultTabsGroup|regular|radio|dropdown|accordion)-[a-z0-9]{8}\b/gi,
             (value, prefix) => {
                 if (!runtimeIds.has(value)) {
                     const index = (runtimeIdCounters.get(prefix) || 0) + 1;
@@ -250,7 +250,7 @@ function sortAttributes(attrString) {
  * Compare two HTML files and return a diff description.
  * @param {string} expectedPath - Path to expected HTML file.
  * @param {string} actualPath - Path to actual HTML file.
- * @returns {{identical: boolean, diff: string[]}}
+ * @returns {{identical: boolean, diff: string[], stateDiffs: object[]}}
  */
 function compareHtmlFile(expectedPath, actualPath) {
     const expectedRaw = fs.readFileSync(expectedPath, 'utf-8');
@@ -259,7 +259,7 @@ function compareHtmlFile(expectedPath, actualPath) {
     const actualNorm = normalizeHtml(actualRaw);
 
     if (expectedNorm === actualNorm) {
-        return {identical: true, diff: []};
+        return {identical: true, diff: [], stateDiffs: []};
     }
 
     const expectedLines = expectedNorm.split(/(?=<)/);
@@ -268,11 +268,141 @@ function compareHtmlFile(expectedPath, actualPath) {
     const diff = [];
     for (let i = 0; i < maxLen; i++) {
         if (expectedLines[i] !== actualLines[i]) {
-            if (expectedLines[i]) diff.push(`- ${truncate(expectedLines[i])}`);
-            if (actualLines[i]) diff.push(`+ ${truncate(actualLines[i])}`);
+            const [expectedExcerpt, actualExcerpt] = contextualDiff(
+                expectedLines[i] || '',
+                actualLines[i] || '',
+            );
+            if (expectedLines[i]) diff.push(`- ${expectedExcerpt}`);
+            if (actualLines[i]) diff.push(`+ ${actualExcerpt}`);
         }
     }
-    return {identical: false, diff};
+    return {
+        identical: false,
+        diff,
+        stateDiffs: compareDiplodocState(expectedNorm, actualNorm),
+    };
+}
+
+/**
+ * Return compact excerpts around the first and last changed characters.
+ * @param {string} expected - Expected value.
+ * @param {string} actual - Actual value.
+ * @param {number} max - Maximum excerpt length.
+ * @returns {[string, string]} Expected and actual excerpts.
+ */
+function contextualDiff(expected, actual, max = 240) {
+    let prefix = 0;
+    while (
+        prefix < expected.length &&
+        prefix < actual.length &&
+        expected[prefix] === actual[prefix]
+    ) {
+        prefix++;
+    }
+
+    let suffix = 0;
+    while (
+        suffix < expected.length - prefix &&
+        suffix < actual.length - prefix &&
+        expected[expected.length - 1 - suffix] === actual[actual.length - 1 - suffix]
+    ) {
+        suffix++;
+    }
+
+    return [
+        diffExcerpt(expected, prefix, expected.length - suffix, max),
+        diffExcerpt(actual, prefix, actual.length - suffix, max),
+    ];
+}
+
+function diffExcerpt(value, changeStart, changeEnd, max) {
+    const context = 70;
+    const start = Math.max(0, changeStart - context);
+    const end = Math.min(value.length, Math.max(changeEnd + context, changeStart + context));
+    const segment = value.slice(start, end);
+    const leading = start > 0 ? '…' : '';
+    const trailing = end < value.length ? '…' : '';
+
+    if (segment.length <= max) return `${leading}${segment}${trailing}`.trim();
+
+    const edge = Math.floor((max - 30) / 2);
+    const omitted = segment.length - edge * 2;
+    return `${leading}${segment.slice(0, edge)}…[${omitted} chars]…${segment.slice(-edge)}${trailing}`.trim();
+}
+
+function extractDiplodocState(html) {
+    const match = html.match(/<script\b[^>]*\bid=["']diplodoc-state["'][^>]*>([\s\S]*?)<\/script>/);
+    if (!match) return undefined;
+
+    try {
+        return JSON.parse(match[1]);
+    } catch {
+        return undefined;
+    }
+}
+
+function compareDiplodocState(expectedHtml, actualHtml) {
+    const expected = extractDiplodocState(expectedHtml);
+    const actual = extractDiplodocState(actualHtml);
+    if (expected === undefined || actual === undefined) return [];
+
+    const result = [];
+    collectJsonDiffs(expected, actual, '$', result);
+    return result;
+}
+
+// eslint-disable-next-line complexity -- recursive JSON comparison handles each value kind explicitly.
+function collectJsonDiffs(expected, actual, jsonPath, result) {
+    if (JSON.stringify(expected) === JSON.stringify(actual)) return;
+
+    const expectedObject = expected !== null && typeof expected === 'object';
+    const actualObject = actual !== null && typeof actual === 'object';
+    if (!expectedObject || !actualObject || Array.isArray(expected) || Array.isArray(actual)) {
+        result.push({path: jsonPath, expected, actual});
+        return;
+    }
+
+    const keys = new Set([...Object.keys(expected), ...Object.keys(actual)]);
+    for (const key of keys) {
+        collectJsonDiffs(expected[key], actual[key], `${jsonPath}.${key}`, result);
+    }
+}
+
+function formatJsonValue(value) {
+    if (value === undefined) return '`<missing>`';
+    if (Array.isArray(value) && value.length > 6) {
+        return `\`${truncate(JSON.stringify(value.slice(0, 3)), 140)} … (${value.length} items)\``;
+    }
+
+    return `\`${truncate(JSON.stringify(value), 180)}\``;
+}
+
+function renderStateDiffs(stateDiffs) {
+    if (!stateDiffs || stateDiffs.length === 0) return [];
+
+    const lines = ['**Structured `diplodoc-state` changes:**', ''];
+    for (const diff of stateDiffs) {
+        if (typeof diff.expected === 'string' && typeof diff.actual === 'string') {
+            const [expectedExcerpt, actualExcerpt] = contextualDiff(
+                diff.expected,
+                diff.actual,
+                320,
+            );
+            lines.push(
+                `- \`${diff.path}\`:`,
+                '  ```diff',
+                `  - ${expectedExcerpt}`,
+                `  + ${actualExcerpt}`,
+                '  ```',
+            );
+        } else {
+            lines.push(
+                `- \`${diff.path}\`: ${formatJsonValue(diff.expected)} → ${formatJsonValue(diff.actual)}`,
+            );
+        }
+    }
+    lines.push('');
+    return lines;
 }
 
 /**
@@ -367,7 +497,7 @@ function compareArtifacts(expectedDir, actualDir) {
         }
         const result = compareHtmlFile(expectedPath, actualPath);
         if (!result.identical) {
-            htmlDiffs.push({file, diff: result.diff});
+            htmlDiffs.push({file, diff: result.diff, stateDiffs: result.stateDiffs});
         }
         const links = compareAssetLinks(expectedPath, actualPath);
         if (links.added.length > 0 || links.removed.length > 0) {
@@ -428,6 +558,8 @@ function renderReport(result) {
         lines.push(`**${result.htmlDiffs.length}** file(s) with HTML content differences:\n`);
         for (const hd of result.htmlDiffs) {
             lines.push(`#### ${hd.file}\n`);
+            lines.push(...renderStateDiffs(hd.stateDiffs));
+            lines.push('**Contextual HTML diff:**', '');
             lines.push('```diff');
             for (const line of hd.diff.slice(0, 50)) {
                 lines.push(line);
@@ -513,6 +645,9 @@ module.exports = {
     normalizeGeneratedReferences,
     normalizeBuildSpecificValues,
     normalizeHtml,
+    contextualDiff,
+    compareDiplodocState,
+    renderStateDiffs,
     sortAttributes,
     compareHtmlFile,
     extractAssetLinks,

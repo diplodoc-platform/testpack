@@ -50,6 +50,19 @@ test.describe('Golden File Comparison', () => {
             const twice = compareArtifacts.normalizeHtml(once);
             expect(once).toBe(twice);
         });
+
+        test('should show the changed region instead of a shared long prefix', () => {
+            const prefix = 'shared-prefix '.repeat(40);
+            const [expected, actual] = compareArtifacts.contextualDiff(
+                `${prefix}old-value common-suffix`,
+                `${prefix}new-value common-suffix`,
+            );
+
+            expect(expected).toContain('old-value');
+            expect(actual).toContain('new-value');
+            expect(expected.length).toBeLessThanOrEqual(241);
+            expect(actual.length).toBeLessThanOrEqual(241);
+        });
     });
 
     test.describe('compare-artifacts — sortAttributes', () => {
@@ -197,6 +210,18 @@ test.describe('Golden File Comparison', () => {
                     'defaultTabsGroup-RUNTIME-ID-1 regular-RUNTIME-ID-1 regular-RUNTIME-ID-1',
                     'aria-controls=\\":1_element\\" tabindex=\\"0\\" id=\\"1-TERM-ID\\"',
                 ].join(' '),
+            );
+        });
+
+        test('should report diplodoc-state changes by JSON path', () => {
+            const expected = '<script id="diplodoc-state">{"search":{"enabled":true}}</script>';
+            const actual =
+                '<script id="diplodoc-state">{"search":{"enabled":true,"tags":[]}}</script>';
+            const diffs = compareArtifacts.compareDiplodocState(expected, actual);
+
+            expect(diffs).toEqual([{path: '$.search.tags', expected: undefined, actual: []}]);
+            expect(compareArtifacts.renderStateDiffs(diffs).join('\n')).toContain(
+                '`$.search.tags`: `<missing>` → `[]`',
             );
         });
     });
