@@ -83,15 +83,72 @@ function diffFileTree(expectedFiles, actualFiles) {
     return {added, removed, common};
 }
 
+const DYNAMIC_BUNDLE_PATH = /(^|\/)_bundle\/\d+-[a-f0-9]{12,16}(?:\.[a-z0-9]+)*\.[a-z0-9]+$/i;
+const DYNAMIC_BUNDLE_REFERENCE = String.raw`_bundle\/\d+-[a-f0-9]{12,16}(?:\.[a-z0-9]+)*\.[a-z0-9]+`;
+
+function stripDynamicBundleReferences(content) {
+    if (!new RegExp(DYNAMIC_BUNDLE_REFERENCE).test(content)) return content;
+
+    return content
+        .replace(
+            new RegExp(`<script\\b[^>]*?${DYNAMIC_BUNDLE_REFERENCE}[^>]*?>\\s*<\\/script>`, 'g'),
+            '',
+        )
+        .replace(new RegExp(`<link\\b[^>]*?${DYNAMIC_BUNDLE_REFERENCE}[^>]*?\\/?>`, 'g'), '')
+        .replace(new RegExp(`\\\\?"${DYNAMIC_BUNDLE_REFERENCE}\\\\?",?`, 'g'), '')
+        .replace(new RegExp(DYNAMIC_BUNDLE_REFERENCE, 'g'), '')
+        .replace(/\[\s*,/g, '[')
+        .replace(/,\s*\]/g, ']')
+        .replace(/,\s*,/g, ',');
+}
+
+/**
+ * Normalize build-specific values using the same invariants as the CLI snapshot
+ * fixtures (`platformless`, `hashless`, and `bundleless`).  Keep this generic:
+ * the base and head builds intentionally use different CLI manifests.
+ * @param {string} content - Artifact path or textual artifact content.
+ * @returns {string} Stable value for comparison.
+ */
+function normalizeBuildSpecificValues(content) {
+    let inlineCodeIndex = 1;
+
+    return stripDynamicBundleReferences(normalizeGeneratedReferences(content))
+        .replace(/\r\n/g, '\n')
+        .replace(
+            /_bundle\/([a-z][a-z0-9]*)-[a-f0-9]{12,16}((?:\.[a-z0-9]+)*)\.([a-z0-9]+)/gi,
+            (_match, base, suffixes, extension) => {
+                const suffix = suffixes.replace(/\./g, '-');
+                return `_bundle/${base}${suffix}-${extension}`;
+            },
+        )
+        .replace(/(\/|\\)[a-z0-9]{12,16}-(index|registry|resources)\./gi, '/hash-$2.')
+        .replace(/-[a-z0-9]{12,16}\./gi, '-hash.')
+        .replace(
+            /\bDiplodoc Platform v\d+\.\d+\.\d+(?:-[\w-]+)?\b/g,
+            'Diplodoc Platform vDIPLODOC-VERSION',
+        )
+        .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, 'UUID')
+        .replace(
+            /(aria-controls=\\":term_element\\" tabindex=\\"\d+\\" id=\\")[a-zA-Z0-9]{1,10}/g,
+            '$1vTERM-ID',
+        )
+        .replace(
+            /id=\\"inline-code-id-[a-zA-Z0-9]{8}\\"/g,
+            () => `id=\\"inline-code-id-${inlineCodeIndex++}\\"`,
+        );
+}
+
 /**
  * Map build-specific artifact names to a stable comparison identity.
  * The search resources filename contains a build timestamp, while its contents
  * still point to the content-addressed index and registry files.
  * @param {string} file - Relative artifact path.
- * @returns {string} Stable relative artifact path.
+ * @returns {string | null} Stable relative artifact path, or null for ignored dynamic chunks.
  */
 function canonicalArtifactPath(file) {
-    return file.replace(/(^|\/)\d{13}-resources\.js$/, '$1__generated__-resources.js');
+    if (DYNAMIC_BUNDLE_PATH.test(file)) return null;
+
+    return normalizeBuildSpecificValues(file);
 }
 
 /**
@@ -103,6 +160,7 @@ function indexArtifactPaths(files) {
     const groups = new Map();
     for (const file of files) {
         const canonical = canonicalArtifactPath(file);
+        if (canonical === null) continue;
         groups.set(canonical, [...(groups.get(canonical) || []), file]);
     }
 
@@ -139,7 +197,7 @@ function normalizeGeneratedReferences(content) {
  * @returns {string} Normalized HTML.
  */
 function normalizeHtml(html) {
-    return normalizeGeneratedReferences(html)
+    return normalizeBuildSpecificValues(html)
         .replace(/<style[\s\S]*?<\/style>/g, (m) => {
             return m.replace(/\s+/g, ' ').trim();
         })
@@ -220,7 +278,7 @@ function extractAssetLinks(html) {
     const re = /(?:src|href)=["']([^"']+)["']/g;
     let m;
     while ((m = re.exec(html)) !== null) {
-        links.push(normalizeGeneratedReferences(m[1]));
+        links.push(normalizeBuildSpecificValues(m[1]));
     }
     return links.sort();
 }
@@ -244,15 +302,8 @@ function compareAssetLinks(expectedPath, actualPath) {
 function fileHash(filePath, relativePath = '') {
     const raw = fs.readFileSync(filePath);
     let content = raw;
-    if (relativePath.endsWith('/toc.js') || relativePath === 'toc.js') {
-        content = Buffer.from(
-            raw
-                .toString('utf-8')
-                .replace(
-                    /\b[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/gi,
-                    '__generated_uuid__',
-                ),
-        );
+    if (/\.(?:css|html?|js|json|svg|txt|xml|yfm)$/i.test(relativePath)) {
+        content = Buffer.from(normalizeBuildSpecificValues(raw.toString('utf-8')));
     }
     return createHash('sha256').update(content).digest('hex');
 }
@@ -285,6 +336,10 @@ function compareArtifacts(expectedDir, actualDir) {
         const expectedPath = path.join(expectedDir, expectedFiles.get(file));
         const actualPath = path.join(actualDir, actualFiles.get(file));
         if (!file.endsWith('.html')) {
+            // CLI snapshot fixtures deliberately exclude generated client bundles.
+            // Their content hashes change on every dependency rebuild; HTML links,
+            // DOM checks, and screenshots provide the useful regression signal.
+            if (file.startsWith('_bundle/')) continue;
             const expectedHash = fileHash(expectedPath, file);
             const actualHash = fileHash(actualPath, file);
             if (expectedHash !== actualHash) {
@@ -438,6 +493,7 @@ module.exports = {
     canonicalArtifactPath,
     indexArtifactPaths,
     normalizeGeneratedReferences,
+    normalizeBuildSpecificValues,
     normalizeHtml,
     sortAttributes,
     compareHtmlFile,
