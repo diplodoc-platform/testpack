@@ -52,6 +52,7 @@
     "esbuild": "^0.27.2",
     "express": "^4.21.2",
     "glob": "^10.4.5",
+    "sanitize-html": "2.12.1",
     "typescript": "6.0.3"
   },
   "peerDependencies": {
