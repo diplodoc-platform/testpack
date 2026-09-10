@@ -28,8 +28,10 @@ export type RiskLevel = 'low' | 'medium' | 'high' | 'critical';
 /**
  * Verification profile identifier.
  */
-export type ProfileId =
-    'standard' | 'toolchain' | 'document-transform' | 'document-rendering' | 'ecosystem';
+type PackageProfileId = 'standard' | 'toolchain';
+type DocumentProfileId = 'document-transform' | 'document-rendering';
+
+export type ProfileId = PackageProfileId | DocumentProfileId | 'ecosystem';
 
 /**
  * A single ordered step within a verification profile.

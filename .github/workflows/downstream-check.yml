@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-24.04
     env:
       CI: 'true'
-      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/ms-playwright
     steps:
       - name: Checkout metapackage (with submodules)
         uses: actions/checkout@v5
