@@ -142,6 +142,49 @@ test.describe('Golden File Comparison', () => {
             ];
             expect([...compareArtifacts.indexArtifactPaths(paths).keys()]).toEqual(paths);
         });
+
+        test('should normalize CLI versions and content-addressed asset names', () => {
+            const input = [
+                '<meta content="Diplodoc Platform v5.53.0">',
+                '<script src="_bundle/app-8f2e8c692ec7a302.js"></script>',
+                '<link href="_bundle/vendor-e4c23b89e4736af8.rtl.css">',
+                '<script src="_search/ru/692c117cf7d7-index.js"></script>',
+            ].join('');
+
+            expect(compareArtifacts.normalizeBuildSpecificValues(input)).toBe(
+                [
+                    '<meta content="Diplodoc Platform vDIPLODOC-VERSION">',
+                    '<script src="_bundle/app-js"></script>',
+                    '<link href="_bundle/vendor-rtl-css">',
+                    '<script src="_search/ru/hash-index.js"></script>',
+                ].join(''),
+            );
+        });
+
+        test('should ignore dynamic client chunks like CLI snapshot fixtures', () => {
+            const paths = [
+                '_bundle/app-8f2e8c692ec7a302.js',
+                '_bundle/572-d105b8fc819aff93.rtl.css',
+            ];
+
+            expect([...compareArtifacts.indexArtifactPaths(paths).keys()]).toEqual([
+                '_bundle/app-js',
+            ]);
+            expect(
+                compareArtifacts.normalizeBuildSpecificValues(
+                    '<link href="_bundle/572-d105b8fc819aff93.rtl.css">',
+                ),
+            ).toBe('');
+        });
+
+        test('should normalize generated UUIDs and inline code ids', () => {
+            const input =
+                'id="123e4567-e89b-42d3-a456-426614174000" id=\\"inline-code-id-a1B2c3D4\\"';
+
+            expect(compareArtifacts.normalizeBuildSpecificValues(input)).toBe(
+                'id="UUID" id=\\"inline-code-id-1\\"',
+            );
+        });
     });
 
     test.describe('compare-artifacts — extractAssetLinks', () => {
@@ -168,6 +211,18 @@ test.describe('Golden File Comparison', () => {
             const html = '<img src="z.png"><img src="a.png">';
             const links = compareArtifacts.extractAssetLinks(html);
             expect(links).toEqual(['a.png', 'z.png']);
+        });
+
+        test('should normalize build hashes in asset links', () => {
+            const expected = compareArtifacts.extractAssetLinks(
+                '<script src="_bundle/app-8f2e8c692ec7a302.js"></script>',
+            );
+            const actual = compareArtifacts.extractAssetLinks(
+                '<script src="_bundle/app-e999bf52a913e329.js"></script>',
+            );
+
+            expect(actual).toEqual(expected);
+            expect(actual).toEqual(['_bundle/app-js']);
         });
     });
 
@@ -222,16 +277,20 @@ test.describe('Golden File Comparison', () => {
             }
         });
 
-        test('should ignore only known generated search timestamps and toc UUIDs', () => {
+        test('should ignore generated values and preserve semantic search changes', () => {
             const tmpDir = path.join(__dirname, '..', '..', '..', '.tmp-golden-generated');
             const expectedDir = path.join(tmpDir, 'expected');
             const actualDir = path.join(tmpDir, 'actual');
             const expectedSearchDir = path.join(expectedDir, '_search', 'ru');
             const actualSearchDir = path.join(actualDir, '_search', 'ru');
+            const expectedBundleDir = path.join(expectedDir, '_bundle');
+            const actualBundleDir = path.join(actualDir, '_bundle');
 
             try {
                 fs.mkdirSync(expectedSearchDir, {recursive: true});
                 fs.mkdirSync(actualSearchDir, {recursive: true});
+                fs.mkdirSync(expectedBundleDir, {recursive: true});
+                fs.mkdirSync(actualBundleDir, {recursive: true});
                 fs.mkdirSync(path.join(expectedDir, 'ru'), {recursive: true});
                 fs.mkdirSync(path.join(actualDir, 'ru'), {recursive: true});
 
@@ -245,11 +304,31 @@ test.describe('Golden File Comparison', () => {
                 );
                 fs.writeFileSync(
                     path.join(expectedDir, 'index.html'),
-                    '<script src="_search/ru/1789031349764-resources.js"></script>',
+                    [
+                        '<meta content="Diplodoc Platform v5.53.0">',
+                        '<script src="_bundle/app-8f2e8c692ec7a302.js"></script>',
+                        '<script src="_search/ru/1789031349764-resources.js"></script>',
+                    ].join(''),
                 );
                 fs.writeFileSync(
                     path.join(actualDir, 'index.html'),
-                    '<script src="_search/ru/1789031362748-resources.js"></script>',
+                    [
+                        '<meta content="Diplodoc Platform v5.57.3">',
+                        '<script src="_bundle/app-e999bf52a913e329.js"></script>',
+                        '<script src="_search/ru/1789031362748-resources.js"></script>',
+                    ].join(''),
+                );
+                fs.writeFileSync(
+                    path.join(expectedBundleDir, 'app-8f2e8c692ec7a302.js'),
+                    'old generated bundle',
+                );
+                fs.writeFileSync(
+                    path.join(actualBundleDir, 'app-e999bf52a913e329.js'),
+                    'new generated bundle',
+                );
+                fs.writeFileSync(
+                    path.join(actualBundleDir, '572-d105b8fc819aff93.rtl.css'),
+                    'dynamic chunk',
                 );
                 fs.writeFileSync(
                     path.join(expectedDir, 'ru', 'toc.js'),
