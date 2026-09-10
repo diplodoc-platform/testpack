@@ -107,6 +107,8 @@ test.describe('Reproducer Fixtures', () => {
             await expect(svg).toBeVisible();
             await expect(svg).toHaveScreenshot('svgo-large-diagram.png', {
                 animations: 'disabled',
+                // Text rasterization differs slightly between macOS baselines and Linux CI.
+                maxDiffPixels: 2000,
             });
         });
 
@@ -174,6 +176,8 @@ test.describe('Reproducer Fixtures', () => {
             await expect(svg).toBeVisible();
             await expect(svg).toHaveScreenshot('complex-gradients.png', {
                 animations: 'disabled',
+                // Keep the tolerance below 0.2%; missing gradients differ by more than 30%.
+                maxDiffPixels: 200,
             });
         });
 
