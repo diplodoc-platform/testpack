@@ -120,6 +120,27 @@ Playwright screenshot baselines are stored in `tests/__screenshots__/`. Strict d
 
 {% endcut %}
 
+## Dependency Deep Verification {#dependency-deep-verification}
+
+The reusable `.github/workflows/downstream-check.yml` workflow validates dependency-update
+PRs from every repository listed in `@diplodoc/infra` `distribution.yml`, including extension
+repositories such as `tabs-extension`, `cut-extension`, and `mermaid-extension`.
+
+The caller supplies the repository name, the full candidate commit SHA, and the verification
+profile selected by the dependency risk assessment. The workflow fails closed unless both the
+standalone checkout and the metapackage submodule resolve to that exact SHA. It then:
+
+1. installs and checks the candidate using its own lockfile;
+2. replaces the corresponding metapackage submodule;
+3. regenerates an integration lockfile and builds the workspaces;
+4. compares normalized base and candidate corpus output;
+5. runs browser and screenshot checks for `document-rendering` and `ecosystem` profiles;
+6. runs explicitly mapped downstream consumers for core packages.
+
+Repositories without a dedicated consumer map still receive standalone, metapackage, and corpus
+verification. The generated integration lockfile, corpus, reports, screenshots, and traces are
+uploaded as exact-SHA evidence.
+
 ## TOC Navigation {#toc-navigation}
 
 This page is registered under the Syntax section of the table of contents.

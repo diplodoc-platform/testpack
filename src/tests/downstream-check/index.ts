@@ -13,7 +13,7 @@ const FIXTURE_PATHS = new Set([
     'packages',
     'extensions',
     'devops',
-    ...(Object.values(downstreamCheck.CORE_PACKAGE_PATHS) as string[]),
+    ...(Object.values(downstreamCheck.PACKAGE_PATHS) as string[]),
     ...(Object.values(downstreamCheck.DOWNSTREAM_CONSUMERS).flat() as string[]),
 ]);
 
@@ -97,6 +97,38 @@ test.describe('Downstream Check', () => {
                 expect(downstreamCheck.CORE_PACKAGE_PATHS[pkg]).toBeDefined();
                 expect(downstreamCheck.CORE_PACKAGE_PATHS[pkg].length).toBeGreaterThan(0);
             }
+        });
+    });
+
+    test.describe('PACKAGE_PATHS', () => {
+        test('should include every distributed repository', () => {
+            expect(downstreamCheck.SUPPORTED_PACKAGES).toHaveLength(27);
+            expect(Object.keys(downstreamCheck.PACKAGE_PATHS)).toEqual(
+                downstreamCheck.SUPPORTED_PACKAGES,
+            );
+            expect(Object.keys(downstreamCheck.PACKAGE_NAMES)).toEqual(
+                downstreamCheck.SUPPORTED_PACKAGES,
+            );
+        });
+
+        test('should map extension repository names to metapackage paths', () => {
+            expect(downstreamCheck.PACKAGE_PATHS['tabs-extension']).toBe('extensions/tabs');
+            expect(downstreamCheck.PACKAGE_PATHS['cut-extension']).toBe('extensions/cut');
+            expect(downstreamCheck.PACKAGE_PATHS['mermaid-extension']).toBe('extensions/mermaid');
+        });
+
+        test('should map devops repository names to metapackage paths', () => {
+            expect(downstreamCheck.PACKAGE_PATHS['package-template']).toBe(
+                'devops/package-template',
+            );
+            expect(downstreamCheck.PACKAGE_PATHS.testpack).toBe('devops/testpack');
+        });
+
+        test('should preserve the exceptional unscoped vsc package name', () => {
+            expect(downstreamCheck.PACKAGE_NAMES.vsc).toBe('diplodoc-vsc-extension');
+            expect(downstreamCheck.PACKAGE_NAMES['tabs-extension']).toBe(
+                '@diplodoc/tabs-extension',
+            );
         });
     });
 
@@ -207,6 +239,19 @@ test.describe('Downstream Check', () => {
         });
     });
 
+    test.describe('isSupportedPackage', () => {
+        test('should accept core and extension repositories', () => {
+            expect(downstreamCheck.isSupportedPackage('transform')).toBe(true);
+            expect(downstreamCheck.isSupportedPackage('tabs-extension')).toBe(true);
+            expect(downstreamCheck.isSupportedPackage('mermaid-extension')).toBe(true);
+        });
+
+        test('should reject repositories outside the distribution set', () => {
+            expect(downstreamCheck.isSupportedPackage('infra')).toBe(false);
+            expect(downstreamCheck.isSupportedPackage('unknown')).toBe(false);
+        });
+    });
+
     test.describe('resolveDownstreamConsumers', () => {
         test('should return consumers for transform', () => {
             const consumers = downstreamCheck.resolveDownstreamConsumers('transform');
@@ -266,7 +311,13 @@ test.describe('Downstream Check', () => {
 
         test('should throw for unknown package', () => {
             expect(() => downstreamCheck.resolvePackageDir('unknown', '/tmp')).toThrow(
-                /Unknown core package/,
+                /Unknown package/,
+            );
+        });
+
+        test('should resolve an extension repository directory', () => {
+            expect(downstreamCheck.resolvePackageDir('tabs-extension', '/tmp/metapackage')).toBe(
+                '/tmp/metapackage/extensions/tabs',
             );
         });
 
@@ -375,7 +426,7 @@ test.describe('Downstream Check', () => {
                 skipCorpus: true,
             });
             expect(result.passed).toBe(false);
-            expect(result.error).toContain('Unknown core package');
+            expect(result.error).toContain('Unknown package');
             expect(result.summary.total).toBe(0);
         });
 
@@ -474,6 +525,18 @@ test.describe('Downstream Check', () => {
             });
             expect(result.package).toBe('cli');
             expect(result.summary.total).toBe(downstreamCheck.DOWNSTREAM_CONSUMERS.cli.length);
+            expect(result.passed).toBe(true);
+        });
+
+        test('should run corpus-only verification for an extension without known consumers', () => {
+            const result = downstreamCheck.runDownstreamCheck('tabs-extension', {
+                metapackageRoot: METAPACKAGE_ROOT,
+                skipBuild: true,
+                skipTests: true,
+                skipCorpus: true,
+            });
+            expect(result.package).toBe('tabs-extension');
+            expect(result.summary.total).toBe(0);
             expect(result.passed).toBe(true);
         });
 
