@@ -48,10 +48,12 @@ webServer: {
 ```
 
 So a single `npm test`:
+
 1. Builds the fixture docs (`npm run docs`).
 2. Builds the server bundle + starts it (`npm run start` → `npm run build && npm run serve`).
 3. Waits for `http://localhost:3000` to respond.
-4. Runs all Playwright suites from `tests/docs.spec.ts` → `src/tests/index.ts`.
+4. Runs reusable E2E suites from `tests/docs.spec.ts` → `src/tests/index.ts` and
+   repository-only tooling checks from `tests/repository.spec.ts`.
 
 ### 2.2 Source layout
 
@@ -62,8 +64,8 @@ devops/testpack/
 │   ├── server/
 │   │   ├── index.ts           # Express static file server (exported as @diplodoc/testpack/server)
 │   │   └── .eslintrc.js
-│   └── tests/                 # The actual test suites (exported as @diplodoc/testpack/tests)
-│       ├── index.ts           # Barrel: imports terms, tabs, cut, search, mermaid
+│   └── tests/                 # Reusable E2E suites plus repository-only checks
+│       ├── index.ts           # Public barrel: imports portable browser suites
 │       ├── terms/{index.ts,utils.ts}
 │       ├── tabs/index.ts
 │       ├── cut/index.ts
@@ -71,6 +73,7 @@ devops/testpack/
 │       └── mermaid/index.ts
 ├── tests/
 │   ├── docs.spec.ts           # Top-level spec: `import '../src/tests';`
+│   ├── repository.spec.ts     # Internal tooling suites, excluded from public barrel
 │   └── __screenshots__/       # Playwright snapshot baselines (PNG)
 ├── docs/
 │   ├── input/                 # YFM source fixtures (.md, toc.yaml, .yfm, assets/)
@@ -120,11 +123,17 @@ Built **bundled** by esbuild (`bundle: true, packages: 'external'`) into `build/
 
 #### `src/tests/index.ts` — suite barrel
 
-Imports all suites in order: terms, tabs, cut, search, mermaid. This is what `tests/docs.spec.ts` pulls in (`import '../src/tests';`), and what external consumers get from `@diplodoc/testpack/tests`.
+Imports the portable browser suites. This is what `tests/docs.spec.ts` pulls in
+(`import '../src/tests';`) and what external consumers get from
+`@diplodoc/testpack/tests`. Checks that depend on repository scripts or a
+metapackage checkout are registered separately by `tests/repository.spec.ts`.
 
-#### `tests/docs.spec.ts` — entry point
+#### `tests/*.spec.ts` — entry points
 
-A single-line file: `import '../src/tests';`. Playwright discovers it via `testDir: './tests'`. This indirection lets external projects `import '@diplodoc/testpack/tests'` to reuse the whole suite set.
+`docs.spec.ts` imports the public barrel, while `repository.spec.ts` imports
+testpack's internal verification-tool suites. Playwright discovers both via
+`testDir: './tests'`; external projects import only
+`@diplodoc/testpack/tests` and therefore do not inherit repository-only checks.
 
 #### `scripts/init.js` — pre-test bootstrap
 
@@ -146,13 +155,13 @@ Runs before `npx playwright test` (see `package.json` `test` script). It:
 
 ### 3.1 Test suite inventory
 
-| Suite | File | `test.describe` blocks | Focus |
-|-------|------|------------------------|-------|
-| Terms | `src/tests/terms/index.ts` (+ `utils.ts`) | element, tooltip | term element attributes/role/tabindex; tooltip appearance on click, close-on-outside-click, keyboard (Enter/Escape), positioning, visual structure. Helpers `findTerm`, `findTooltip`, `openTerm` locate `i.yfm-term_title` and the matching `dfn[id=...]` via `aria-controls`. |
-| Tabs | `src/tests/tabs/index.ts` | Regular tabs, Grouped sync, Radio, Dropdown, Accordion, Nested tabs, Layout & styling | tab switching & single-active-panel invariant; cross-group sync via shared group key; URL `tabs=` query param round-trip; radio toggle; dropdown select; accordion exclusive expand; nested independence; container width/height stability. |
-| Cut | `src/tests/cut/index.ts` | Basic, Content rendering, Nested cuts, Formatted titles, Empty titles, Cuts in lists, URL hash, Grouped cuts, Open attribute, Accessibility, Visual behaviour | collapsible `<details>`/`<summary>` blocks: expand/collapse, independent state, HTML/code/nested content rendering, formatted (bold/italic/code) titles, empty titles, cuts inside lists, deep-link via URL hash (expand + scroll + focus + transient `cut-highlight`), grouped (name attr) exclusive behaviour, `open` default, ARIA/keyboard, animation/spacing. |
-| Search | `src/tests/search/index.ts` | Basic, Input behaviour, Suggestions, Keyboard navigation, Mouse interaction, Results structure, Accessibility, Performance/debouncing | `.dc-search-suggest` UI: input visibility/focus/placeholder; typing & special/Russian chars; popup appearance; loader vs results vs empty; Escape/ArrowDown/ArrowUp/Enter; click-to-select navigation; listbox/option roles; rapid-typing debouncing. |
-| Mermaid | `src/tests/mermaid/index.ts` | Basic functionality, under Safari browser | diagram rendering & screenshot comparison, controls on click, scroll, zoom controls. **Currently entirely skipped** (`test.skip()` at the top-level describe), though screenshots exist. |
+| Suite   | File                                      | `test.describe` blocks                                                                                                                                        | Focus                                                                                                                                                                                                                                                                                                                                                              |
+| ------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Terms   | `src/tests/terms/index.ts` (+ `utils.ts`) | element, tooltip                                                                                                                                              | term element attributes/role/tabindex; tooltip appearance on click, close-on-outside-click, keyboard (Enter/Escape), positioning, visual structure. Helpers `findTerm`, `findTooltip`, `openTerm` locate `i.yfm-term_title` and the matching `dfn[id=...]` via `aria-controls`.                                                                                    |
+| Tabs    | `src/tests/tabs/index.ts`                 | Regular tabs, Grouped sync, Radio, Dropdown, Accordion, Nested tabs, Layout & styling                                                                         | tab switching & single-active-panel invariant; cross-group sync via shared group key; URL `tabs=` query param round-trip; radio toggle; dropdown select; accordion exclusive expand; nested independence; container width/height stability.                                                                                                                        |
+| Cut     | `src/tests/cut/index.ts`                  | Basic, Content rendering, Nested cuts, Formatted titles, Empty titles, Cuts in lists, URL hash, Grouped cuts, Open attribute, Accessibility, Visual behaviour | collapsible `<details>`/`<summary>` blocks: expand/collapse, independent state, HTML/code/nested content rendering, formatted (bold/italic/code) titles, empty titles, cuts inside lists, deep-link via URL hash (expand + scroll + focus + transient `cut-highlight`), grouped (name attr) exclusive behaviour, `open` default, ARIA/keyboard, animation/spacing. |
+| Search  | `src/tests/search/index.ts`               | Basic, Input behaviour, Suggestions, Keyboard navigation, Mouse interaction, Results structure, Accessibility, Performance/debouncing                         | `.dc-search-suggest` UI: input visibility/focus/placeholder; typing & special/Russian chars; popup appearance; loader vs results vs empty; Escape/ArrowDown/ArrowUp/Enter; click-to-select navigation; listbox/option roles; rapid-typing debouncing.                                                                                                              |
+| Mermaid | `src/tests/mermaid/index.ts`              | Basic functionality, under Safari browser                                                                                                                     | diagram rendering & screenshot comparison, controls on click, scroll, zoom controls. **Currently entirely skipped** (`test.skip()` at the top-level describe), though screenshots exist.                                                                                                                                                                           |
 
 ## 4. Fixture Structure
 
@@ -195,24 +204,24 @@ docs/input/
 
 ## 5. Entry Points
 
-| Purpose | Entry | Notes |
-|---------|-------|-------|
-| Local test run | `playwright.config.ts` | Uses `src/config`, adds chromium project + `webServer`. Run via `npm test` (= `node ./scripts/init.js && npx playwright test`). |
-| Build docs fixtures | `npm run docs` | `npx @diplodoc/cli build -i docs/input -o docs/output`. |
-| Build package | `npm run build` | `node ./esbuild/build.mjs` → `build/{config,server,tests}`. |
-| Serve docs | `npm run start` / `npm run serve` | `npm run build && node build/server`. |
-| Reusable config | `@diplodoc/testpack/config` → `build/config/index.js` (from `src/config/index.ts`) | `export default config({...})`. |
-| Reusable suites | `@diplodoc/testpack/tests` → `build/tests/**/*.js` (from `src/tests/**`) | Imported by `tests/docs.spec.ts`. |
-| Reusable server | `@diplodoc/testpack/server` → `build/server/index.js` (from `src/server/index.ts`, bundled) | Standalone-runnable. |
+| Purpose             | Entry                                                                                       | Notes                                                                                                                           |
+| ------------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Local test run      | `playwright.config.ts`                                                                      | Uses `src/config`, adds chromium project + `webServer`. Run via `npm test` (= `node ./scripts/init.js && npx playwright test`). |
+| Build docs fixtures | `npm run docs`                                                                              | `npx @diplodoc/cli build -i docs/input -o docs/output`.                                                                         |
+| Build package       | `npm run build`                                                                             | `node ./esbuild/build.mjs` → `build/{config,server,tests}`.                                                                     |
+| Serve docs          | `npm run start` / `npm run serve`                                                           | `npm run build && node build/server`.                                                                                           |
+| Reusable config     | `@diplodoc/testpack/config` → `build/config/index.js` (from `src/config/index.ts`)          | `export default config({...})`.                                                                                                 |
+| Reusable suites     | `@diplodoc/testpack/tests` → `build/tests/index.js`                                         | Portable E2E suites imported by `tests/docs.spec.ts`; repository tooling checks are not registered.                             |
+| Reusable server     | `@diplodoc/testpack/server` → `build/server/index.js` (from `src/server/index.ts`, bundled) | Standalone-runnable.                                                                                                            |
 
-`package.json` `exports` map: `"./*": "./build/*/index.js"` — so `@diplodoc/testpack/config`, `@diplodoc/testpack/server`, `@diplodoc/testpack/tests` resolve to the corresponding `build/<name>/index.js`. Published `files`: `["build", "docs"]`.
+`package.json` `exports` map: `"./*": "./build/*/index.js"` — so `@diplodoc/testpack/config`, `@diplodoc/testpack/server`, `@diplodoc/testpack/tests` resolve to the corresponding `build/<name>/index.js`. Published `files`: `["_assets", "build", "docs"]`; `_assets` contains runtime fixtures required by the reusable folding-headings suite.
 
 ## 6. Configuration Files
 
 - **`package.json`** — `@diplodoc/testpack` v1.0.1. Scripts: `build`, `start`/`serve`, `test`, `docs`, `lint`/`lint:fix`, `pre-commit`, `prepare` (husky), `typecheck`, `lock`. Deps: `@playwright/test ^1.60.0`. devDeps: `@diplodoc/infra`, `@types/express`, `@types/node`, `esbuild`, `express`, `glob`, `typescript 6.0.3`. peerDeps: `@diplodoc/cli ^5.53.0`. Engines: `npm >=11.5.1`.
 - **`tsconfig.json`** — extends `@diplodoc/infra/tsconfig.json`; `target: es2020`, `moduleResolution: bundler`, `resolveJsonModule`, `declaration`. Excludes `node_modules`, `docs/output`, `build`, `tests/__screenshots__`.
 - **`playwright.config.ts`** — local dev config: chromium project, `baseURL: http://localhost:3000`, `webServer` building docs + starting server.
-- **`esbuild/build.mjs`** — three build pipelines: `config` (single outfile, external packages), `server` (bundled), `tests` (multi-entry via glob of `src/tests/**/*.ts`).
+- **`esbuild/build.mjs`** — three build pipelines: `config` (single outfile, external packages), `server` (bundled), `tests` (CommonJS multi-entry via glob of `src/tests/**/*.ts`).
 - **`docs/input/.yfm`** — YFM project config for the fixture docs.
 - **`docs/input/ru/toc.yaml`** — navigation/structure for the fixture site.
 - **`.eslintrc.js`, `.prettierrc.js`, `.stylelintrc.js`, `.editorconfig`, `.lintstagedrc.js`** — code-style toolchain shared via `@diplodoc/infra`/`@diplodoc/lint`.
@@ -227,12 +236,12 @@ docs/input/
 
 ## 7. Environment Variables
 
-| Variable | Default | Used by | Effect |
-|----------|---------|---------|--------|
+| Variable   | Default               | Used by      | Effect                                                                                            |
+| ---------- | --------------------- | ------------ | ------------------------------------------------------------------------------------------------- |
 | `BASE_URL` | `https://hostmachine` | `src/config` | Playwright `use.baseURL` (overridden to `http://localhost:3000` in local `playwright.config.ts`). |
-| `CI` | unset | `src/config` | `retries` (2 vs 0), `workers` (1 vs 4), `webServer.reuseExistingServer` (false in CI). |
-| `PROJECT` | `docs/output` | `src/server` | Directory the Express server serves. |
-| `PORT` | `3000` | `src/server` | Express server port (must match `webServer.url`). |
+| `CI`       | unset                 | `src/config` | `retries` (2 vs 0), `workers` (1 vs 4), `webServer.reuseExistingServer` (false in CI).            |
+| `PROJECT`  | `docs/output`         | `src/server` | Directory the Express server serves.                                                              |
+| `PORT`     | `3000`                | `src/server` | Express server port (must match `webServer.url`).                                                 |
 
 ## 8. Integration with the Metapackage
 

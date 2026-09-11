@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import {execFileSync} from 'child_process';
 import {expect, test} from '@playwright/test';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -21,7 +22,47 @@ for (const fixturePath of FIXTURE_PATHS) {
     fs.mkdirSync(path.join(METAPACKAGE_ROOT, fixturePath), {recursive: true});
 }
 
+function createGitMetapackageFixture() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-downstream-git-'));
+    fs.writeFileSync(path.join(root, 'package.json'), '{}\n');
+    for (const fixturePath of FIXTURE_PATHS) {
+        fs.mkdirSync(path.join(root, fixturePath), {recursive: true});
+    }
+
+    const packageDir = path.join(root, 'packages', 'transform');
+    const gitOptions = {
+        cwd: packageDir,
+        env: downstreamCheck.withoutGitRepositoryOverrides(),
+    };
+    execFileSync('git', ['init', '--quiet'], gitOptions);
+    fs.writeFileSync(path.join(packageDir, 'fixture.txt'), 'fixture\n');
+    execFileSync('git', ['add', 'fixture.txt'], gitOptions);
+    execFileSync(
+        'git',
+        [
+            '-c',
+            'user.name=Testpack',
+            '-c',
+            'user.email=testpack@example.invalid',
+            'commit',
+            '--quiet',
+            '-m',
+            'fixture',
+        ],
+        gitOptions,
+    );
+
+    return {
+        root,
+        packageDir,
+        sha: downstreamCheck.resolvePackageHeadSha(packageDir),
+    };
+}
+
 test.describe('Downstream Check', () => {
+    // The suite shares a temporary metapackage fixture that is removed in afterAll.
+    test.describe.configure({mode: 'serial'});
+
     test.afterAll(() => {
         fs.rmSync(METAPACKAGE_ROOT, {recursive: true, force: true});
     });
@@ -228,6 +269,15 @@ test.describe('Downstream Check', () => {
                 /Unknown core package/,
             );
         });
+
+        test('should resolve the checked-out package commit', () => {
+            const fixture = createGitMetapackageFixture();
+            try {
+                expect(downstreamCheck.resolvePackageHeadSha(fixture.packageDir)).toBe(fixture.sha);
+            } finally {
+                fs.rmSync(fixture.root, {recursive: true, force: true});
+            }
+        });
     });
 
     test.describe('buildConsumerResult', () => {
@@ -340,6 +390,45 @@ test.describe('Downstream Check', () => {
             expect(result.passed).toBe(false);
             expect(result.error).toContain('40-character');
             expect(result.summary.total).toBe(0);
+        });
+
+        test('should reject a PR SHA that does not match the package checkout', () => {
+            const fixture = createGitMetapackageFixture();
+            try {
+                const mismatchedSha = 'ffffffffffffffffffffffffffffffffffffffff';
+                const result = downstreamCheck.runDownstreamCheck('transform', {
+                    prSha: mismatchedSha,
+                    metapackageRoot: fixture.root,
+                    skipBuild: true,
+                    skipTests: true,
+                    skipCorpus: true,
+                });
+
+                expect(result.passed).toBe(false);
+                expect(result.actualSha).toBe(fixture.sha);
+                expect(result.error).toContain('does not match PR SHA');
+                expect(result.summary.total).toBe(0);
+            } finally {
+                fs.rmSync(fixture.root, {recursive: true, force: true});
+            }
+        });
+
+        test('should accept a PR SHA that matches the package checkout', () => {
+            const fixture = createGitMetapackageFixture();
+            try {
+                const result = downstreamCheck.runDownstreamCheck('transform', {
+                    prSha: fixture.sha,
+                    metapackageRoot: fixture.root,
+                    skipBuild: true,
+                    skipTests: true,
+                    skipCorpus: true,
+                });
+
+                expect(result.passed).toBe(true);
+                expect(result.prSha).toBe(fixture.sha);
+            } finally {
+                fs.rmSync(fixture.root, {recursive: true, force: true});
+            }
         });
     });
 

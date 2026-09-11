@@ -211,7 +211,7 @@ const DOCUMENT_TRANSFORM_STEPS: VerificationStep[] = [
             'CODEOWNER approval.',
         command:
             'node scripts/compare-artifacts.js ' +
-            '--expected artifacts/expected/ --actual artifacts/actual/ ' +
+            '--expected artifacts/expected/output/ --actual artifacts/actual/output/ ' +
             '--report artifacts/diff.md',
         required: true,
         buildsOn: ['corpus-build-base', 'corpus-build-head'],

@@ -18,7 +18,7 @@ The test flow is:
 1. `npm run docs` builds YFM fixtures via `@diplodoc/cli` into `docs/output/`
 2. `npm run start` builds the server bundle and starts the Express server
 3. Playwright `webServer` waits on `http://localhost:3000`
-4. Playwright runs all suites from `src/tests/index.ts`
+4. Playwright runs portable suites from `src/tests/index.ts` and repository-only checks from `tests/repository.spec.ts`
 
 ```text
 docs/input/*.md (YFM fixtures)
@@ -112,7 +112,7 @@ The esbuild build pipeline (`esbuild/build.mjs`) emits three outputs:
 | --- | --- | --- |
 | `build/config` | Non-bundled | `src/config/index.ts` |
 | `build/server` | Bundled | `src/server/index.ts` |
-| `build/tests` | Multi-entry | `src/tests/**/*.ts` |
+| `build/tests` | CommonJS multi-entry | `src/tests/**/*.ts` |
 
 {% cut "Screenshot Testing" %}
 
