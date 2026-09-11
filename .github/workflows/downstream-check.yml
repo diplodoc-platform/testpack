@@ -190,9 +190,10 @@ jobs:
 
       - name: Build reference corpus
         run: |
-          node ../../packages/cli/build/index.js build -i docs/input -o docs/output
           mkdir -p "${{ github.workspace }}/artifacts/expected"
-          cp -r docs/output "${{ github.workspace }}/artifacts/expected/output"
+          node ../../packages/cli/build/index.js build \
+            -i docs/input \
+            -o "${{ github.workspace }}/artifacts/expected/output"
         working-directory: metapackage/devops/testpack
 
       - name: Replace submodule with candidate SHA
@@ -237,9 +238,10 @@ jobs:
 
       - name: Build candidate corpus
         run: |
-          node ../../packages/cli/build/index.js build -i docs/input -o docs/output
           mkdir -p "${{ github.workspace }}/artifacts/actual"
-          cp -r docs/output "${{ github.workspace }}/artifacts/actual/output"
+          node ../../packages/cli/build/index.js build \
+            -i docs/input \
+            -o "${{ github.workspace }}/artifacts/actual/output"
         working-directory: metapackage/devops/testpack
 
       - name: Run candidate browser and screenshot regression
