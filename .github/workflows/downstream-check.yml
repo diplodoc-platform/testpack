@@ -174,8 +174,8 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: metapackage/devops/testpack
 
-      - name: Build base metapackage workspaces in dependency order
-        run: npm exec nx -- run-many --target=build --all --parallel=5
+      - name: Build base testpack dependency graph
+        run: npm run build
         working-directory: metapackage
 
       - name: Record base package export state
@@ -216,8 +216,8 @@ jobs:
           npm ci
         working-directory: metapackage
 
-      - name: Build candidate metapackage workspaces in dependency order
-        run: npm exec nx -- run-many --target=build --all --parallel=5
+      - name: Build candidate testpack dependency graph
+        run: npm run build
         working-directory: metapackage
 
       - name: Verify candidate exports from the real workspace

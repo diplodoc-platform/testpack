@@ -185,11 +185,11 @@ reserved for critical core/security updates.
 
 1–14. **Document rendering steps** (see above).
 
-15. **Metapackage build** (`metapackage-build`) — Build the full Diplodoc
-    metapackage with the PR branch checked out as a submodule. Nx builds all
-    packages in dependency order.
+15. **Metapackage build** (`metapackage-build`) — Build the testpack target in
+    the Diplodoc metapackage with the PR branch checked out as a submodule. Nx
+    builds its dependency graph in order.
     ```bash
-    git submodule update --init --recursive --force && npm install && npm exec nx -- run-many --target=build --all --parallel=5
+    git submodule update --init --recursive --force && npm install && npm run build
     ```
 16. **Testpack E2E suite** (`testpack-e2e`) — Run the full testpack Playwright
     E2E suite (all 33 suites) against the metapackage build to verify
