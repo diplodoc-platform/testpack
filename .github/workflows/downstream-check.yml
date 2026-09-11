@@ -200,7 +200,7 @@ jobs:
           PACKAGE_PATH: ${{ steps.package.outputs.path }}
           PR_SHA: ${{ inputs.pr-sha }}
         run: |
-          git -C "${PACKAGE_PATH}" fetch origin "${PR_SHA}"
+          git -C "${PACKAGE_PATH}" fetch "${{ github.workspace }}/candidate-package" "${PR_SHA}"
           git -C "${PACKAGE_PATH}" checkout --detach "${PR_SHA}"
           ACTUAL_SHA=$(git -C "${PACKAGE_PATH}" rev-parse --verify HEAD)
           if [ "${ACTUAL_SHA}" != "${PR_SHA,,}" ]; then
