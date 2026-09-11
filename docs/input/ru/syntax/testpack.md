@@ -132,7 +132,7 @@ standalone checkout and the metapackage submodule resolve to that exact SHA. It 
 
 1. installs and checks the candidate using its own lockfile;
 2. replaces the corresponding metapackage submodule;
-3. regenerates an integration lockfile and builds the workspaces;
+3. regenerates and records both base and candidate integration lockfiles, then builds the workspaces;
 4. compares normalized base and candidate corpus output;
 5. runs browser and screenshot checks for `document-rendering` and `ecosystem` profiles;
 6. runs explicitly mapped downstream consumers for core packages.
