@@ -1,0 +1,315 @@
+default:
+  project_name: Diplodoc
+  env: test
+  version: 5.55
+  items:
+    - name: Alpha
+      value: First
+    - name: Beta
+      value: Second
+    - name: Gamma
+      value: Third
+  schema_info:
+    package: '@diplodoc/ajv'
+    version: '0.4.4'
+    schemas:
+      - frontmatter
+      - toc
+      - redirects
+      - theme
+  liquid_user:
+    name: alice
+    role: editor
+    age: 25
+    active: true
+    address:
+      city: Moscow
+  liquid_greeting: hello world
+  liquid_tags:
+    - premium
+    - vip
+  liquid_groups:
+    - name: Alpha
+      members:
+        - Alice
+        - Ivan
+    - name: Beta
+      members:
+        - Petr
+        - Olga
+  liquid_word: Pasha
+  liquid_range:
+    - 1
+    - 2
+    - 3
+  infra_info:
+    package: '@diplodoc/infra'
+    version: '2.2.3'
+    description: 'Central infrastructure package for linting, CI workflows, and scaffolding'
+    binaries:
+      - lint
+      - infra
+    exports:
+      - eslint-config
+      - prettier-config
+      - stylelint-config
+      - esbuild
+  vsc_info:
+    package: 'diplodoc-vsc-extension'
+    version: '1.4.1'
+    description: 'VS Code extension for Diplodoc — schema validation, linting, and visual editors'
+    editor_mode: 'wysiwyg'
+    commands:
+      - diplodoc.openMdEditor
+      - diplodoc.openTocEditor
+      - diplodoc.initProject
+      - diplodoc.insertTable
+      - diplodoc.insertNote
+      - diplodoc.insertCut
+      - diplodoc.insertTab
+      - diplodoc.insertCodeBlock
+      - diplodoc.insertInclude
+      - diplodoc.insertQuote
+      - diplodoc.insertMermaid
+      - diplodoc.insertFrontmatter
+      - diplodoc.insertPageConstructor
+      - diplodoc.insertHtmlBlock
+      - diplodoc.insertVideo
+      - diplodoc.insertComment
+      - diplodoc.findFileReferences
+  directive_info:
+    package: '@diplodoc/directive'
+    version: '0.3.6'
+    description: 'Pluggable parser for directive syntax in markdown markup'
+    syntax_forms:
+      - name: Inline
+        marker: ':name'
+        description: 'Inline directive found in text flow'
+      - name: Leaf block
+        marker: '::name'
+        description: 'Leaf block directive without content'
+      - name: Container block
+        marker: ':::name'
+        description: 'Container block directive with content between :::name and :::'
+  algolia_info:
+    package: '@diplodoc/algolia-extension'
+    version: '0.7.1'
+    description: 'Algolia search integration extension for Diplodoc — indexing and client-side search'
+    options:
+      - flag: '--app-id <id>'
+        description: 'Algolia Application ID'
+      - flag: '--api-key <key>'
+        description: 'Algolia API Key'
+      - flag: '--index-name <name>'
+        description: 'Algolia Index Name'
+      - flag: '--index [boolean]'
+        description: 'Whether to create and upload an index for search'
+      - flag: '--search-api-key <key>'
+        description: 'Client-side API key for search'
+      - flag: '--search-provider <name>'
+        description: 'Search provider name'
+      - flag: '--search-api <path>'
+        description: 'Path to the client-side search API'
+    dependencies:
+      - '@diplodoc/search-extension'
+      - algoliasearch
+      - cheerio
+      - lodash
+      - ts-dedent
+  sentenizer_info:
+    package: '@diplodoc/sentenizer'
+    version: '0.0.11'
+    description: 'Rule-based NLP library for Russian sentence segmentation'
+    keywords:
+      - nlp
+      - parser
+      - tokenization
+      - sentence-segmentation
+      - russian
+    join_rules:
+      - name: 'spaceBothSides'
+        description: 'Spaces appear on both sides of the boundary'
+      - name: 'rightLacksSpacePrefix'
+        description: 'Right chunk lacks a leading space'
+      - name: 'rightStartsWithLowercase'
+        description: 'Right chunk starts with a lowercase letter'
+      - name: 'rightDelimiterPrefix'
+        description: 'Right chunk starts with a delimiter'
+      - name: 'rightQuotationGenericPrefix'
+        description: 'Right chunk starts with a generic quotation mark'
+      - name: 'rightQuotationClosePrefix'
+        description: 'Right chunk starts with a closing quotation mark'
+      - name: 'rightBracketsClosePrefix'
+        description: 'Right chunk starts with a closing bracket'
+      - name: 'rightOnlySpaces'
+        description: 'Right chunk consists only of spaces'
+      - name: 'leftInitials'
+        description: 'Left chunk ends with initials (e.g. И. В.)'
+      - name: 'leftAbbreviation'
+        description: 'Left chunk ends with a known abbreviation'
+      - name: 'pairAbbreviation'
+        description: 'The pair forms a known two-word abbreviation'
+      - name: 'leftPairsTailAbbreviation'
+        description: 'Split occurs at the tail of a pair abbreviation'
+  html_info:
+    package: '@diplodoc/html-extension'
+    version: '2.9.13'
+    description: 'HTML plugin for Diplodoc transformer and builder — safe inline HTML via container directive'
+    dependencies:
+      - '@diplodoc/directive'
+      - parse5
+      - '@diplodoc/transform'
+      - markdown-it
+    exports:
+      - '@diplodoc/html-extension'
+      - '@diplodoc/html-extension/runtime'
+      - '@diplodoc/html-extension/react'
+      - '@diplodoc/html-extension/utils'
+      - '@diplodoc/html-extension/iframe'
+  cut_info:
+    package: '@diplodoc/cut-extension'
+    version: '1.1.7'
+    description: 'Cut extension for Diplodoc platform — collapsible sections with grouping and hash navigation'
+    dependencies:
+      - '@diplodoc/directive'
+      - '@diplodoc/utils'
+    exports:
+      - '@diplodoc/cut-extension'
+      - '@diplodoc/cut-extension/runtime'
+  latex_info:
+    package: '@diplodoc/latex-extension'
+    version: '2.0.2'
+    description: 'LaTeX math rendering extension for Diplodoc using KaTeX'
+    dependencies:
+      - katex
+      - markdown-it
+    exports:
+      - '@diplodoc/latex-extension'
+      - '@diplodoc/latex-extension/plugin'
+      - '@diplodoc/latex-extension/runtime'
+      - '@diplodoc/latex-extension/runtime/styles'
+      - '@diplodoc/latex-extension/react'
+      - '@diplodoc/latex-extension/hooks'
+  translation_info:
+    package: '@diplodoc/translation'
+    version: '1.7.31'
+    description: 'Markdown translation utilities — XLIFF extraction, skeleton generation, and composition'
+    dependencies:
+      - '@diplodoc/sentenizer'
+      - '@diplodoc/transform'
+      - '@diplodoc/directive'
+      - '@diplodoc/ajv'
+      - markdown-it
+      - cheerio
+      - fast-xml-parser
+      - js-yaml
+    exports:
+      - '@diplodoc/translation'
+      - '@diplodoc/translation/package'
+      - '@diplodoc/translation/schemas/*'
+  search_info:
+    package: '@diplodoc/search-extension'
+    version: '3.1.1'
+    description: 'Lunr based offline search extension for Diplodoc platform'
+    tolerance_levels:
+      - level: 0
+        pattern: 'word'
+        description: 'Precise match only'
+      - level: 1
+        pattern: 'word*'
+        description: 'Trailing wildcard on every clause'
+      - level: 2
+        pattern: '*word*'
+        description: 'Leading and trailing wildcards on every clause'
+    confidence_modes:
+      - mode: 'phrased'
+        description: 'Phrase-aware scoring rewarding consecutive tokens within MERGE_TOLERANCE distance'
+      - mode: 'sparsed'
+        description: 'Plain Lunr scoring without phrase awareness'
+    field_boosts:
+      - field: 'title'
+        boost: 10
+      - field: 'keywords'
+        boost: 8
+      - field: 'content'
+        boost: 1
+    dependencies:
+      - he
+      - lunr
+      - lunr-languages
+      - node-html-parser
+    exports:
+      - '.'
+      - './indexer'
+      - './worker'
+      - './worker/langs'
+  tabs_info:
+    package: '@diplodoc/tabs-extension'
+    version: '3.10.7'
+    description: 'Tabs plugin for Diplodoc transformer and builder — switchable tabs with variants and group synchronization'
+    variants:
+      - name: 'regular'
+        description: 'Horizontal tabs (default)'
+      - name: 'radio'
+        description: 'Vertical radio-style tabs'
+      - name: 'dropdown'
+        description: 'Dropdown menu selector'
+      - name: 'accordion'
+        description: 'Collapsible accordion sections'
+    exports:
+      - '@diplodoc/tabs-extension'
+      - '@diplodoc/tabs-extension/runtime'
+      - '@diplodoc/tabs-extension/runtime/styles'
+      - '@diplodoc/tabs-extension/react'
+  color_info:
+    package: '@diplodoc/color-extension'
+    version: '1.0.0'
+    description: 'Inline color plugin for Diplodoc transformer and builder'
+    dependencies:
+      - markdown-it
+    exports:
+      - '@diplodoc/color-extension'
+  testpack_info:
+    package: '@diplodoc/testpack'
+    version: '1.0.1'
+    description: 'E2E test infrastructure for the Diplodoc documentation platform'
+    scripts:
+      - name: 'npm run build'
+        description: 'Build config, server, and tests via esbuild'
+      - name: 'npm run start'
+        description: 'Build and start the Express test server'
+      - name: 'npm run test'
+        description: 'Bootstrap and run Playwright test suites'
+      - name: 'npm run docs'
+        description: 'Build YFM fixtures via @diplodoc/cli'
+      - name: 'npm run lint'
+        description: 'Run ESLint and Prettier checks'
+    exports:
+      - '@diplodoc/testpack/config'
+      - '@diplodoc/testpack/server'
+      - '@diplodoc/testpack/tests'
+  quote_link_info:
+    package: '@diplodoc/quote-link-extension'
+    version: '0.1.8'
+    description: 'Quote link extension for Diplodoc platform'
+    dependencies:
+      - '@diplodoc/utils'
+    exports:
+      - '.'
+      - './runtime'
+      - './runtime/styles'
+  package_template_info:
+    package: '@diplodoc/package-template'
+    version: '2.0.1'
+    description: 'Template package for creating new packages on the Diplodoc platform'
+    exports:
+      - 'example'
+      - 'greet'
+    config_files:
+      - '.eslintrc.js'
+      - '.prettierrc.js'
+      - '.stylelintrc.js'
+      - '.lintstagedrc.js'
+      - '.editorconfig'
+      - '.husky/pre-commit'
+      - 'sonar-project.properties'

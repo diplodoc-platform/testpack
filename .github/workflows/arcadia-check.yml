@@ -1,0 +1,65 @@
+name: Arcadia External Check
+
+# The actual build runs in internal Arcadia CI. This workflow only validates
+# evidence returned by that bridge and fails closed when evidence is absent.
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        required: true
+        type: choice
+        options: [transform, components, cli]
+      pr-sha:
+        required: true
+        type: string
+      result-json:
+        description: 'JSON result produced by the internal Arcadia CI bridge'
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      package:
+        required: true
+        type: string
+      pr-sha:
+        required: true
+        type: string
+      result-json:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-arcadia-result:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/testpack
+          ref: master
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Materialize bridge result
+        env:
+          RESULT_JSON: ${{ inputs.result-json }}
+        run: node -e "require('fs').writeFileSync('/tmp/arcadia-result.json', process.env.RESULT_JSON)"
+      - name: Validate bridge result
+        run: |
+          node scripts/arcadia-check.js \
+            --package '${{ inputs.package }}' \
+            --pr-sha '${{ inputs.pr-sha }}' \
+            --result /tmp/arcadia-result.json \
+            --output artifacts/arcadia \
+            --report artifacts/arcadia-report.md
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: arcadia-check-${{ inputs.package }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30

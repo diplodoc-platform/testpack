@@ -31,10 +31,68 @@ items:
     items:
       - name: Tabs
         href: syntax/tabs.md
+      - name: Tabs Extension
+        href: syntax/tabs-extension.md
       - name: Cut
         href: syntax/cut.md
       - name: Terms
         href: syntax/terms.md
+      - name: Markdown
+        href: syntax/markdown.md
+      - name: CLI Features
+        href: syntax/cli-features.md
+      - name: Components
+        href: syntax/components.md
+      - name: Transform
+        href: syntax/transform.md
+      - name: AJV Schemas
+        href: syntax/ajv-schemas.md
+      - name: Client
+        href: syntax/client.md
+      - name: Utils
+        href: syntax/utils.md
+      - name: Liquid
+        href: syntax/liquid.md
+      - name: YFM Lint
+        href: syntax/yfmlint.md
+      - name: File Extension
+        href: syntax/file.md
+      - name: OpenAPI Sandbox
+        href: syntax/openapi.md
+      - name: Page Constructor
+        href: syntax/page-constructor.md
+      - name: Infra
+        href: syntax/infra.md
+      - name: VSC Extension
+        href: syntax/vsc.md
+      - name: Testpack
+        href: syntax/testpack.md
+      - name: Directive
+        href: syntax/directive.md
+      - name: Algolia
+        href: syntax/algolia.md
+      - name: Cut Extension
+        href: syntax/cut-extension.md
+      - name: Sentenizer
+        href: syntax/sentenizer.md
+      - name: HTML Extension
+        href: syntax/html.md
+      - name: Latex Extension
+        href: syntax/latex.md
+      - name: Translation
+        href: syntax/translation.md
+      - name: Search Extension
+        href: syntax/search-extension.md
+      - name: Color Extension
+        href: syntax/color.md
+      - name: Folding Test
+        href: syntax/folding-test.md
+      - name: Quote Link Extension
+        href: syntax/quote-link.md
+      - name: Package Template
+        href: syntax/package-template.md
+  - name: Reproducers
+    href: reproducers/index.md
   - name: Search
     items:
       - name: Обзор

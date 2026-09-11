@@ -1,0 +1,175 @@
+name: Golden File Comparison
+
+on:
+  pull_request:
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+
+permissions:
+  contents: read
+
+jobs:
+  golden-file-comparison:
+    name: Golden File Comparison
+    runs-on: ubuntu-24.04
+    env:
+      CI: 'true'
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
+    steps:
+      - name: Checkout (base + head)
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Classify dependency-only PR scope
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          MANIFEST_DEPENDENCY_CHANGE=$(node <<'NODE'
+          const {execFileSync} = require('node:child_process');
+          const sections = [
+              'dependencies',
+              'devDependencies',
+              'peerDependencies',
+              'optionalDependencies',
+              'overrides',
+          ];
+          const readManifest = (ref) =>
+              JSON.parse(execFileSync('git', ['show', `${ref}:package.json`], {encoding: 'utf8'}));
+          const selectDependencies = (manifest) =>
+              Object.fromEntries(sections.map((section) => [section, manifest[section] || {}]));
+          const before = selectDependencies(readManifest(process.env.BASE_SHA));
+          const after = selectDependencies(readManifest(process.env.HEAD_SHA));
+          process.stdout.write(String(JSON.stringify(before) !== JSON.stringify(after)));
+          NODE
+          )
+
+          LOCKFILE_CHANGE=false
+          if ! git diff --quiet "${BASE_SHA}" "${HEAD_SHA}" -- package-lock.json; then
+            LOCKFILE_CHANGE=true
+          fi
+
+          NON_DEPENDENCY_FILES=$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" -- \
+            ':(exclude)package.json' ':(exclude)package-lock.json')
+          DEPENDENCY_ONLY=false
+          if [ -z "${NON_DEPENDENCY_FILES}" ]; then
+            DEPENDENCY_ONLY=true
+          fi
+
+          HAS_DEPENDENCY_CHANGES=false
+          if [ "${MANIFEST_DEPENDENCY_CHANGE}" = true ] || [ "${LOCKFILE_CHANGE}" = true ]; then
+            HAS_DEPENDENCY_CHANGES=true
+          fi
+
+          RUN_COMPARISON=false
+          if [ "${DEPENDENCY_ONLY}" = true ] && [ "${HAS_DEPENDENCY_CHANGES}" = true ]; then
+            RUN_COMPARISON=true
+          fi
+
+          echo "dependency-only=${DEPENDENCY_ONLY}" >> "$GITHUB_OUTPUT"
+          echo "has-dependency-changes=${HAS_DEPENDENCY_CHANGES}" >> "$GITHUB_OUTPUT"
+          echo "run-comparison=${RUN_COMPARISON}" >> "$GITHUB_OUTPUT"
+
+      - name: Explain skipped comparison
+        if: steps.scope.outputs.run-comparison != 'true'
+        run: |
+          echo "Golden comparison is a blocking gate for dependency-only PRs." >> "$GITHUB_STEP_SUMMARY"
+          echo "This PR also changes feature, fixture, test, documentation, or workflow files; those changes remain covered by normal CI and human review." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup Node.js
+        if: steps.scope.outputs.run-comparison == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        if: steps.scope.outputs.run-comparison == 'true'
+        run: npm ci
+
+      - name: Install Playwright browsers
+        if: steps.scope.outputs.run-comparison == 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Resolve base and head SHAs
+        if: steps.scope.outputs.run-comparison == 'true'
+        id: shas
+        run: |
+          echo "base-sha=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+          echo "head-sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Build corpus (base SHA — expected)
+        if: steps.scope.outputs.run-comparison == 'true'
+        run: |
+          node scripts/build-corpus.js \
+            --ref "${{ steps.shas.outputs.base-sha }}" \
+            --output artifacts/expected/
+
+      - name: Build corpus (head SHA — actual)
+        if: steps.scope.outputs.run-comparison == 'true'
+        run: |
+          node scripts/build-corpus.js \
+            --ref "${{ steps.shas.outputs.head-sha }}" \
+            --output artifacts/actual/
+
+      - name: Compare artifacts (file tree + normalized HTML + asset links)
+        if: steps.scope.outputs.run-comparison == 'true'
+        id: compare-artifacts
+        continue-on-error: true
+        run: |
+          node scripts/compare-artifacts.js \
+            --expected artifacts/expected/output/ \
+            --actual artifacts/actual/output/ \
+            --report artifacts/diff.md
+
+      - name: Compare SVG DOM (id, href, viewBox, masks, gradients)
+        if: steps.scope.outputs.run-comparison == 'true'
+        id: compare-svg
+        continue-on-error: true
+        run: |
+          node scripts/compare-svg-dom.js \
+            --expected artifacts/expected/output/ \
+            --actual artifacts/actual/output/ \
+            --report artifacts/svg-diff.md
+
+      - name: Capture screenshots (visual regression)
+        if: steps.scope.outputs.run-comparison == 'true'
+        id: screenshots
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_HTML_REPORT: artifacts/playwright-report
+        run: |
+          npx playwright test --grep @screenshot --update-snapshots=none \
+            --output artifacts/playwright-output \
+            --trace on
+
+      - name: Upload artifacts (actual + expected + diff + trace)
+        if: always() && steps.scope.outputs.run-comparison == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-file-artifacts
+          path: |
+            artifacts/expected/
+            artifacts/actual/
+            artifacts/diff.md
+            artifacts/svg-diff.md
+            artifacts/playwright-output/
+            artifacts/playwright-report/
+          retention-days: 30
+
+      - name: Write comparison reports to job summary
+        if: always() && steps.scope.outputs.run-comparison == 'true'
+        run: |
+          if [ -f artifacts/diff.md ]; then
+            cat artifacts/diff.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f artifacts/svg-diff.md ]; then
+            cat artifacts/svg-diff.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Fail if differences detected
+        if: steps.scope.outputs.run-comparison == 'true' && (steps.compare-artifacts.outcome == 'failure' || steps.compare-svg.outcome == 'failure' || steps.screenshots.outcome == 'failure')
+        run: exit 1

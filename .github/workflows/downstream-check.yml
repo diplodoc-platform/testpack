@@ -1,0 +1,297 @@
+name: Dependency Deep Verification
+
+# Reusable exact-SHA integration verification for dependency-update PRs in any
+# repository distributed by @diplodoc/infra. The candidate is first tested with
+# its own lockfile, then mounted into the Diplodoc metapackage for corpus and
+# downstream verification.
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Repository name from infra/distribution.yml'
+        required: true
+        type: string
+      pr-sha:
+        description: 'Full candidate commit SHA'
+        required: true
+        type: string
+      pr-number:
+        description: 'PR number for reporting (optional)'
+        required: false
+        type: string
+      profile:
+        description: 'Verification profile selected by dependency risk assessment'
+        required: true
+        default: document-transform
+        type: choice
+        options:
+          - document-transform
+          - document-rendering
+          - ecosystem
+  workflow_call:
+    inputs:
+      package:
+        description: 'Repository name from infra/distribution.yml'
+        required: true
+        type: string
+      pr-sha:
+        description: 'Full candidate commit SHA'
+        required: true
+        type: string
+      pr-number:
+        description: 'PR number for reporting (optional)'
+        required: false
+        type: string
+      profile:
+        description: 'Verification profile selected by dependency risk assessment'
+        required: false
+        default: document-transform
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  dependency-deep-verification:
+    name: ${{ inputs.profile }} (${{ inputs.package }})
+    runs-on: ubuntu-24.04
+    env:
+      CI: 'true'
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
+    steps:
+      - name: Validate inputs
+        run: |
+          if [[ ! "${{ inputs.pr-sha }}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "pr-sha must be a full 40-character hexadecimal commit SHA"
+            exit 1
+          fi
+          case "${{ inputs.profile }}" in
+            document-transform|document-rendering|ecosystem) ;;
+            *) echo "Unsupported verification profile: ${{ inputs.profile }}"; exit 1 ;;
+          esac
+
+      - name: Checkout verification tools
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: tools/testpack
+          persist-credentials: false
+
+      - name: Checkout candidate repository at exact SHA
+        uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/${{ inputs.package }}
+          ref: ${{ inputs.pr-sha }}
+          path: candidate-package
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Checkout metapackage with submodules
+        uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/diplodoc
+          ref: master
+          path: metapackage
+          submodules: recursive
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            candidate-package/package-lock.json
+            metapackage/package-lock.json
+
+      - name: Resolve package metadata and verify candidate SHA
+        id: package
+        env:
+          REPOSITORY_NAME: ${{ inputs.package }}
+          EXPECTED_SHA: ${{ inputs.pr-sha }}
+        run: |
+          ACTUAL_SHA=$(git -C candidate-package rev-parse --verify HEAD)
+          if [ "${ACTUAL_SHA}" != "${EXPECTED_SHA,,}" ]; then
+            echo "Candidate checkout ${ACTUAL_SHA} does not match ${EXPECTED_SHA}"
+            exit 1
+          fi
+          node <<'NODE'
+          const fs = require('node:fs');
+          const check = require('./tools/testpack/scripts/downstream-check.js');
+          const repositoryName = process.env.REPOSITORY_NAME;
+          if (!check.isSupportedPackage(repositoryName)) {
+              throw new Error(`Unsupported repository: ${repositoryName}`);
+          }
+          const packagePath = check.PACKAGE_PATHS[repositoryName];
+          const manifest = JSON.parse(fs.readFileSync('candidate-package/package.json', 'utf8'));
+          if (!manifest.name) throw new Error('Candidate package.json has no name');
+          if (manifest.name !== check.PACKAGE_NAMES[repositoryName]) {
+              throw new Error(
+                  `Repository ${repositoryName} contains package ${manifest.name}`,
+              );
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${packagePath}\nname=${manifest.name}\n`);
+          fs.appendFileSync(
+              process.env.GITHUB_STEP_SUMMARY,
+              `Candidate repository: \`${repositoryName}\`\n\nCandidate package: \`${manifest.name}\`\n\nSubmodule: \`${packagePath}\`\n\n`,
+          );
+          NODE
+
+      - name: Install candidate from its own lockfile
+        run: npm ci --ignore-scripts
+        working-directory: candidate-package
+
+      - name: Install candidate Playwright browser when required
+        if: inputs.profile != 'document-transform' || inputs.package == 'testpack'
+        run: npx playwright install --with-deps chromium
+        working-directory: candidate-package
+
+      - name: Run standalone candidate checks
+        run: |
+          npm run typecheck --if-present
+          npm run lint --if-present
+          npm run build --if-present
+          npm test --if-present
+        working-directory: candidate-package
+
+      - name: Verify standalone package exports
+        run: node ../tools/testpack/scripts/check-package-types.js --package-dir .
+        working-directory: candidate-package
+
+      - name: Resolve base metapackage lock and install
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          mkdir -p "${{ github.workspace }}/artifacts"
+          cp package-lock.json "${{ github.workspace }}/artifacts/base-metapackage-lock.json"
+          npm ci
+        working-directory: metapackage
+
+      - name: Install metapackage Playwright browser when required
+        if: inputs.profile != 'document-transform'
+        run: npx playwright install --with-deps chromium
+        working-directory: metapackage/devops/testpack
+
+      - name: Build base testpack dependency graph
+        run: npm run build
+        working-directory: metapackage
+
+      - name: Record base package export state
+        env:
+          PACKAGE_PATH: ${{ steps.package.outputs.path }}
+        run: |
+          node ../tools/testpack/scripts/check-package-types.js \
+            --package-dir "${PACKAGE_PATH}" \
+            --output ../artifacts/base-package-targets.json \
+            --allow-invalid
+        working-directory: metapackage
+
+      - name: Build reference corpus
+        run: |
+          mkdir -p "${{ github.workspace }}/artifacts/expected"
+          node ../../packages/cli/build/index.js build \
+            -i docs/input \
+            -o "${{ github.workspace }}/artifacts/expected/output"
+        working-directory: metapackage/devops/testpack
+
+      - name: Replace submodule with candidate SHA
+        env:
+          PACKAGE_PATH: ${{ steps.package.outputs.path }}
+          PR_SHA: ${{ inputs.pr-sha }}
+        run: |
+          git -C "${PACKAGE_PATH}" fetch "${{ github.workspace }}/candidate-package" "${PR_SHA}"
+          git -C "${PACKAGE_PATH}" checkout --detach "${PR_SHA}"
+          ACTUAL_SHA=$(git -C "${PACKAGE_PATH}" rev-parse --verify HEAD)
+          if [ "${ACTUAL_SHA}" != "${PR_SHA,,}" ]; then
+            echo "Submodule checkout ${ACTUAL_SHA} does not match ${PR_SHA}"
+            exit 1
+          fi
+        working-directory: metapackage
+
+      - name: Resolve candidate metapackage lock and install
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          cp package-lock.json "${{ github.workspace }}/artifacts/candidate-metapackage-lock.json"
+          npm ci
+        working-directory: metapackage
+
+      - name: Build candidate testpack dependency graph
+        run: npm run build
+        working-directory: metapackage
+
+      - name: Verify candidate exports from the real workspace
+        env:
+          PACKAGE_PATH: ${{ steps.package.outputs.path }}
+        run: |
+          node ../tools/testpack/scripts/check-package-types.js \
+            --package-dir "${PACKAGE_PATH}" \
+            --baseline ../artifacts/base-package-targets.json
+        working-directory: metapackage
+
+      - name: Run changed package tests in metapackage context
+        env:
+          PACKAGE_NAME: ${{ steps.package.outputs.name }}
+        run: npm test --workspace "${PACKAGE_NAME}" --if-present
+        working-directory: metapackage
+
+      - name: Build candidate corpus
+        run: |
+          mkdir -p "${{ github.workspace }}/artifacts/actual"
+          node ../../packages/cli/build/index.js build \
+            -i docs/input \
+            -o "${{ github.workspace }}/artifacts/actual/output"
+        working-directory: metapackage/devops/testpack
+
+      - name: Run candidate browser and screenshot regression
+        if: inputs.profile != 'document-transform'
+        env:
+          PLAYWRIGHT_HTML_REPORT: ${{ github.workspace }}/artifacts/playwright-report
+        run: |
+          npx playwright test \
+            --output "${{ github.workspace }}/artifacts/playwright-output" \
+            --trace on
+        working-directory: metapackage/devops/testpack
+
+      - name: Compare corpus and run known downstream consumers
+        id: downstream
+        continue-on-error: true
+        run: |
+          node tools/testpack/scripts/downstream-check.js \
+            --package "${{ inputs.package }}" \
+            --pr-sha "${{ inputs.pr-sha }}" \
+            --metapackage-root metapackage \
+            --expected artifacts/expected/output/ \
+            --actual artifacts/actual/output/ \
+            --output artifacts/downstream/ \
+            --report artifacts/downstream-report.md
+
+      - name: Upload deep verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-deep-verification-${{ inputs.package }}-${{ inputs.pr-sha }}
+          path: |
+            artifacts/downstream/
+            artifacts/downstream-report.md
+            artifacts/expected/
+            artifacts/actual/
+            artifacts/base-package-targets.json
+            artifacts/base-metapackage-lock.json
+            artifacts/candidate-metapackage-lock.json
+            artifacts/playwright-output/
+            artifacts/playwright-report/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Write downstream report to job summary
+        if: always()
+        run: |
+          if [ -f artifacts/downstream-report.md ]; then
+            cat artifacts/downstream-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Fail if downstream verification failed
+        if: steps.downstream.outcome == 'failure'
+        run: exit 1

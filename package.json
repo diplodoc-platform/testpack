@@ -7,6 +7,7 @@
     "./*": "./build/*/index.js"
   },
   "files": [
+    "_assets",
     "build",
     "docs"
   ],
@@ -44,12 +45,16 @@
     "@playwright/test": "^1.60.0"
   },
   "devDependencies": {
+    "@diplodoc/cli": "5.57.3",
+    "@diplodoc/folding-headings-extension": "^0.2.5",
     "@diplodoc/infra": "2.2.3",
+    "@diplodoc/quote-link-extension": "^0.1.8",
     "@types/express": "^4.17.25",
     "@types/node": "^22.19.7",
     "esbuild": "^0.27.2",
     "express": "^4.21.2",
     "glob": "^10.4.5",
+    "sanitize-html": "2.12.1",
     "typescript": "6.0.3"
   },
   "peerDependencies": {
