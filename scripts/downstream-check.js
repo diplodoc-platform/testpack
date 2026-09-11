@@ -36,6 +36,18 @@ const path = require('path');
 const compareArtifacts = require('./compare-artifacts.js');
 const compareSvgDom = require('./compare-svg-dom.js');
 
+const GIT_REPOSITORY_ENV_KEYS = [
+    'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+    'GIT_COMMON_DIR',
+    'GIT_DIR',
+    'GIT_INDEX_FILE',
+    'GIT_NAMESPACE',
+    'GIT_OBJECT_DIRECTORY',
+    'GIT_PREFIX',
+    'GIT_QUARANTINE_PATH',
+    'GIT_WORK_TREE',
+];
+
 /**
  * The three core packages that trigger downstream checks.
  * These are the packages whose changes ripple to the most consumers.
@@ -148,6 +160,34 @@ function resolvePackageDir(pkg, metapackageRoot) {
     const subPath = CORE_PACKAGE_PATHS[pkg];
     if (!subPath) throw new Error(`Unknown core package: ${pkg}`);
     return path.join(metapackageRoot, subPath);
+}
+
+/**
+ * Remove repository-scoped Git variables inherited from hooks or callers.
+ * Transport settings such as GIT_SSH_COMMAND are intentionally preserved.
+ * @param {NodeJS.ProcessEnv} [sourceEnv] - Environment to sanitize.
+ * @returns {NodeJS.ProcessEnv} Environment safe for cwd-based repository lookup.
+ */
+function withoutGitRepositoryOverrides(sourceEnv = process.env) {
+    const env = {...sourceEnv};
+    for (const key of GIT_REPOSITORY_ENV_KEYS) delete env[key];
+    return env;
+}
+
+/**
+ * Resolve the commit currently checked out for a package submodule.
+ * @param {string} packageDir - Absolute package submodule directory.
+ * @returns {string} Full lowercase commit SHA.
+ */
+function resolvePackageHeadSha(packageDir) {
+    return execFileSync('git', ['rev-parse', '--verify', 'HEAD'], {
+        cwd: packageDir,
+        env: withoutGitRepositoryOverrides(),
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+    })
+        .trim()
+        .toLowerCase();
 }
 
 /**
@@ -346,6 +386,52 @@ function runDownstreamCheck(pkg, options) {
             visualComparison: null,
             passed: false,
         };
+    }
+
+    if (opts.prSha) {
+        const packageDir = resolvePackageDir(pkg, opts.metapackageRoot);
+        if (!fs.existsSync(packageDir)) {
+            return {
+                package: pkg,
+                prSha: opts.prSha,
+                error: `Changed package directory not found: ${packageDir}`,
+                consumers: [],
+                summary: {total: 0, passed: 0, failed: 0, failedConsumers: []},
+                semanticComparison: null,
+                visualComparison: null,
+                passed: false,
+            };
+        }
+
+        let actualSha;
+        try {
+            actualSha = resolvePackageHeadSha(packageDir);
+        } catch (error) {
+            return {
+                package: pkg,
+                prSha: opts.prSha,
+                error: `Could not resolve changed package HEAD: ${error.message || String(error)}`,
+                consumers: [],
+                summary: {total: 0, passed: 0, failed: 0, failedConsumers: []},
+                semanticComparison: null,
+                visualComparison: null,
+                passed: false,
+            };
+        }
+
+        if (actualSha !== opts.prSha.toLowerCase()) {
+            return {
+                package: pkg,
+                prSha: opts.prSha,
+                actualSha,
+                error: `Changed package HEAD ${actualSha} does not match PR SHA ${opts.prSha}`,
+                consumers: [],
+                summary: {total: 0, passed: 0, failed: 0, failedConsumers: []},
+                semanticComparison: null,
+                visualComparison: null,
+                passed: false,
+            };
+        }
     }
 
     const consumers = resolveDownstreamConsumers(pkg);
@@ -617,6 +703,8 @@ module.exports = {
     resolveDownstreamConsumers,
     resolveMetapackageRoot,
     resolvePackageDir,
+    withoutGitRepositoryOverrides,
+    resolvePackageHeadSha,
     replaceSubmoduleSha,
     buildConsumer,
     runConsumerTests,

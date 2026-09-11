@@ -131,6 +131,14 @@ test.describe('Verification Profiles', () => {
             expect(hasStep('document-transform', 'artifact-compare')).toBe(true);
         });
 
+        test('artifact comparison should ignore sibling build metadata', () => {
+            const profile = getProfile('document-transform');
+            const step = profile.steps.find(({id}) => id === 'artifact-compare');
+
+            expect(step?.command).toContain('--expected artifacts/expected/output/');
+            expect(step?.command).toContain('--actual artifacts/actual/output/');
+        });
+
         test('document-rendering should add visual regression steps', () => {
             expect(hasStep('document-rendering', 'browser-visual-regression')).toBe(true);
             expect(hasStep('document-rendering', 'svg-dom-compare')).toBe(true);

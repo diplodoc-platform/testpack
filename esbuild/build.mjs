@@ -44,6 +44,7 @@ const tests = {
     entryPoints: await glob('**/*.ts', {cwd: 'src/tests', absolute: true}),
     outdir: outDir + '/tests',
     platform: 'node',
+    format: 'cjs',
 };
 
 build(config);
