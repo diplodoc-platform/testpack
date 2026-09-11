@@ -43,10 +43,12 @@ node scripts/compare-svg-dom.js \
   --report artifacts/svg-diff.md
 ```
 
-Any difference exits non-zero and therefore blocks the workflow. A deliberate
-golden change must be committed and reviewed under the repository's CODEOWNER
-and branch/ruleset policy; the comparison workflow itself has read-only GitHub
-permissions and does not label or comment on pull requests.
+For a dependency-only pull request, any difference exits non-zero and therefore
+blocks the workflow. Feature pull requests that also change fixtures, tests,
+documentation, source, or workflows skip this dependency gate and remain subject
+to the normal CI, CODEOWNER, and branch/ruleset policy. The comparison workflow
+itself has read-only GitHub permissions and does not label or comment on pull
+requests.
 
 ## Browser screenshots
 

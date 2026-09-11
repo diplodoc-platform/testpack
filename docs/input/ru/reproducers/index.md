@@ -129,4 +129,6 @@ distributed package or extension repository, the reusable deep-verification work
 5. Compares SVG DOM structure for the large diagram
 6. Captures and diffs screenshots
 
-Any diff in the golden files requires human CODEOWNER approval before the PR can merge.
+For dependency-only PRs, any golden-file diff blocks the workflow and requires investigation.
+Feature PRs that intentionally change fixtures, tests, documentation, source, or workflows skip
+this dependency gate and use the normal CI plus human CODEOWNER review.
