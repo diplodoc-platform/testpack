@@ -317,7 +317,7 @@ test.describe('Downstream Check', () => {
 
         test('should resolve an extension repository directory', () => {
             expect(downstreamCheck.resolvePackageDir('tabs-extension', '/tmp/metapackage')).toBe(
-                '/tmp/metapackage/extensions/tabs',
+                path.join('/tmp/metapackage', 'extensions', 'tabs'),
             );
         });
 
