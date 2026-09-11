@@ -265,10 +265,11 @@ const ECOSYSTEM_STEPS: VerificationStep[] = [
         name: 'Metapackage build',
         description:
             'Build the full Diplodoc metapackage with the PR branch checked ' +
-            'out as a submodule, ensuring all 28 packages compile together.',
+            'out as a submodule. Nx builds all packages in dependency order.',
         command:
             'git submodule update --init --recursive --force ' +
-            '&& npm install && npm run build --workspaces',
+            '&& npm install && npm exec nx -- run-many ' +
+            '--target=build --all --parallel=5',
         required: true,
         buildsOn: ['build'],
     },
