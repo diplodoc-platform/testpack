@@ -190,7 +190,7 @@ jobs:
 
       - name: Build reference corpus
         run: |
-          npm run docs
+          node ../../packages/cli/build/index.js build -i docs/input -o docs/output
           mkdir -p "${{ github.workspace }}/artifacts/expected"
           cp -r docs/output "${{ github.workspace }}/artifacts/expected/output"
         working-directory: metapackage/devops/testpack
@@ -237,7 +237,7 @@ jobs:
 
       - name: Build candidate corpus
         run: |
-          npm run docs
+          node ../../packages/cli/build/index.js build -i docs/input -o docs/output
           mkdir -p "${{ github.workspace }}/artifacts/actual"
           cp -r docs/output "${{ github.workspace }}/artifacts/actual/output"
         working-directory: metapackage/devops/testpack
