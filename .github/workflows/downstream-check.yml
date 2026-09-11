@@ -74,8 +74,8 @@ jobs:
       - name: Checkout verification tools
         uses: actions/checkout@v5
         with:
-          repository: diplodoc-platform/testpack
-          ref: master
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
           path: tools/testpack
           persist-credentials: false
 
