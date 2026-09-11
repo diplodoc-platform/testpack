@@ -161,8 +161,12 @@ jobs:
         run: node ../tools/testpack/scripts/check-package-types.js --package-dir .
         working-directory: candidate-package
 
-      - name: Install base metapackage dependencies
-        run: npm ci
+      - name: Resolve base metapackage lock and install
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          mkdir -p "${{ github.workspace }}/artifacts"
+          cp package-lock.json "${{ github.workspace }}/artifacts/base-metapackage-lock.json"
+          npm ci
         working-directory: metapackage
 
       - name: Install metapackage Playwright browser when required
@@ -272,6 +276,7 @@ jobs:
             artifacts/expected/
             artifacts/actual/
             artifacts/base-package-targets.json
+            artifacts/base-metapackage-lock.json
             artifacts/candidate-metapackage-lock.json
             artifacts/playwright-output/
             artifacts/playwright-report/
