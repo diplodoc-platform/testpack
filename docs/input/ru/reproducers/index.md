@@ -119,8 +119,8 @@ following verification profiles from T7.1:
 
 ### Regression Detection
 
-When a core dependency (svgo, transform, cli) is updated, the `document-rendering`
-profile:
+When a dependency update is classified for the `document-rendering` profile in any
+distributed package or extension repository, the reusable deep-verification workflow:
 
 1. Builds the reference corpus at the base SHA (expected output)
 2. Builds the corpus at the PR head SHA (actual output)

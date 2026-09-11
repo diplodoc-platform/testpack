@@ -228,7 +228,7 @@ docs/input/
 - **`.husky/`** — `pre-commit` (lint-staged) and `commit-msg` hooks.
 - **`sonar-project.properties`** — SonarQube/SonarCloud analysis config.
 - **`.release-please-config.json` / `.release-please-manifest.json`** — release-please release automation.
-- **`.github/workflows/`** — `tests.yml`, `coverage.yml`, `package-lock.yml`, `security.yml`, `release.yml`, `release-please.yml`, `auto-approve.yml`, `update-deps.yml`.
+- **`.github/workflows/`** — standard package workflows plus `golden-file-comparison.yml` and the reusable `downstream-check.yml`. The latter accepts every repository distributed by `@diplodoc/infra`, verifies the candidate's standalone lockfile and exact submodule SHA, rebuilds the metapackage, compares the base/candidate corpus, and runs browser/downstream checks selected by the risk profile.
 - **`.github/dependabot.yml`** — weekly npm updates, Monday 09:00, WIP limit 10, grouped production/development minor+patch, global major-version ignore.
 - **`.github/CODEOWNERS`** — `* @diplodoc-platform/team @diplodoc-bot`.
 - **`TESTS.md`** — authoritative Playwright testing guidelines (rules, templates, do/don'ts, LLM editing guide).

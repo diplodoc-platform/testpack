@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * Downstream check for core Diplodoc packages (transform, components, cli).
+ * Cross-repository check for Diplodoc packages and extensions.
  *
- * When a core package receives a Dependabot PR, this script verifies the
- * downstream impact by:
+ * When a package receives a dependency-update PR, this script verifies the
+ * metapackage impact by:
  *
- * 1. Resolving the downstream consumers of the changed core package.
+ * 1. Resolving known downstream consumers of the changed package.
  * 2. Building each consumer against dependencies installed at the metapackage root.
  * 3. Running each consumer's test suite.
  * 4. Building the testpack corpus (docs) with the updated package.
@@ -20,7 +20,8 @@
  *   node scripts/downstream-check.js --package cli --output artifacts/downstream/
  *   node scripts/downstream-check.js --package components --report artifacts/downstream-report.md
  *
- * Exits 0 when all downstream checks pass, 1 when any consumer fails.
+ * Packages without a dedicated consumer map still run corpus comparisons.
+ * Exits 0 when all requested checks pass, 1 when any check fails.
  *
  * @module scripts/downstream-check
  */
@@ -55,14 +56,51 @@ const GIT_REPOSITORY_ENV_KEYS = [
 const CORE_PACKAGES = ['transform', 'components', 'cli'];
 
 /**
- * Metapackage submodule path mapping for each core package.
- * Maps the short package name to its submodule directory in the metapackage.
+ * Repository name to metapackage submodule path mapping.
+ * Keep this list aligned with infra/distribution.yml. Repository names for
+ * extensions carry the `-extension` suffix while their submodule paths do not.
  */
-const CORE_PACKAGE_PATHS = {
-    transform: 'packages/transform',
-    components: 'packages/components',
+const PACKAGE_PATHS = {
+    ajv: 'packages/ajv',
     cli: 'packages/cli',
+    client: 'packages/client',
+    components: 'packages/components',
+    directive: 'packages/directive',
+    liquid: 'packages/liquid',
+    sentenizer: 'packages/sentenizer',
+    transform: 'packages/transform',
+    translation: 'packages/translation',
+    utils: 'packages/utils',
+    vsc: 'packages/vsc',
+    yfmlint: 'packages/yfmlint',
+    'algolia-extension': 'extensions/algolia',
+    'color-extension': 'extensions/color',
+    'cut-extension': 'extensions/cut',
+    'file-extension': 'extensions/file',
+    'folding-headings-extension': 'extensions/folding-headings',
+    'html-extension': 'extensions/html',
+    'latex-extension': 'extensions/latex',
+    'mermaid-extension': 'extensions/mermaid',
+    'openapi-extension': 'extensions/openapi',
+    'page-constructor-extension': 'extensions/page-constructor',
+    'quote-link-extension': 'extensions/quote-link',
+    'search-extension': 'extensions/search',
+    'tabs-extension': 'extensions/tabs',
+    'package-template': 'devops/package-template',
+    testpack: 'devops/testpack',
 };
+
+const SUPPORTED_PACKAGES = Object.keys(PACKAGE_PATHS);
+
+const PACKAGE_NAMES = Object.fromEntries(
+    SUPPORTED_PACKAGES.map((repositoryName) => [repositoryName, `@diplodoc/${repositoryName}`]),
+);
+PACKAGE_NAMES.vsc = 'diplodoc-vsc-extension';
+
+// Backward-compatible export for existing integrations.
+const CORE_PACKAGE_PATHS = Object.fromEntries(
+    CORE_PACKAGES.map((packageName) => [packageName, PACKAGE_PATHS[packageName]]),
+);
 
 /**
  * Downstream consumer map: for each core package, the list of metapackage
@@ -116,6 +154,15 @@ function isCorePackage(pkg) {
 }
 
 /**
+ * Check whether a repository can be resolved to a metapackage submodule.
+ * @param {string} pkg - Repository short name.
+ * @returns {boolean}
+ */
+function isSupportedPackage(pkg) {
+    return Object.hasOwn(PACKAGE_PATHS, pkg);
+}
+
+/**
  * Resolve the downstream consumers for a given core package.
  * @param {string} pkg - Core package name (transform, components, cli).
  * @returns {string[]} Array of metapackage submodule paths.
@@ -151,14 +198,14 @@ function resolveMetapackageRoot(startDir) {
 }
 
 /**
- * Resolve the submodule path for a core package within the metapackage.
- * @param {string} pkg - Core package name.
+ * Resolve the submodule path for a supported package within the metapackage.
+ * @param {string} pkg - Repository short name.
  * @param {string} metapackageRoot - Metapackage root directory.
  * @returns {string} Absolute path to the submodule directory.
  */
 function resolvePackageDir(pkg, metapackageRoot) {
-    const subPath = CORE_PACKAGE_PATHS[pkg];
-    if (!subPath) throw new Error(`Unknown core package: ${pkg}`);
+    const subPath = PACKAGE_PATHS[pkg];
+    if (!subPath) throw new Error(`Unknown package: ${pkg}`);
     return path.join(metapackageRoot, subPath);
 }
 
@@ -327,8 +374,8 @@ function summarizeConsumerResults(consumerResults) {
 }
 
 /**
- * Run the full downstream check for a core package.
- * @param {string} pkg - Core package name.
+ * Run the full cross-repository check for a supported package.
+ * @param {string} pkg - Repository short name.
  * @param {object} [options] - Options.
  * @param {string} [options.prSha] - PR commit SHA to replace the submodule with.
  * @param {string} [options.metapackageRoot] - Metapackage root directory.
@@ -352,10 +399,10 @@ function runDownstreamCheck(pkg, options) {
         skipCorpus: options.skipCorpus === true,
     };
 
-    if (!isCorePackage(pkg)) {
+    if (!isSupportedPackage(pkg)) {
         return {
             package: pkg,
-            error: `Unknown core package: ${pkg}. Valid: ${CORE_PACKAGES.join(', ')}`,
+            error: `Unknown package: ${pkg}. Valid: ${SUPPORTED_PACKAGES.join(', ')}`,
             consumers: [],
             summary: {total: 0, passed: 0, failed: 0, failedConsumers: []},
             semanticComparison: null,
@@ -646,7 +693,7 @@ function main() {
 
     if (!pkg) {
         console.error(
-            'Usage: downstream-check.js --package <transform|components|cli> [--pr-sha <sha>] [--output <dir>] [--report <path>]',
+            'Usage: downstream-check.js --package <repository-name> [--pr-sha <sha>] [--output <dir>] [--report <path>]',
         );
         process.exit(1);
     }
@@ -698,8 +745,12 @@ module.exports = {
     parseArgs,
     CORE_PACKAGES,
     CORE_PACKAGE_PATHS,
+    PACKAGE_PATHS,
+    PACKAGE_NAMES,
+    SUPPORTED_PACKAGES,
     DOWNSTREAM_CONSUMERS,
     isCorePackage,
+    isSupportedPackage,
     resolveDownstreamConsumers,
     resolveMetapackageRoot,
     resolvePackageDir,
