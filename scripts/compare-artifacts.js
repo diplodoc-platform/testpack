@@ -132,7 +132,7 @@ function normalizeBuildSpecificValues(content) {
         )
         .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, 'UUID')
         .replace(
-            /\b(defaultTabsGroup|regular|radio|dropdown|accordion)-[a-z0-9]{8}\b/gi,
+            /\b(defaultTabsGroup|regular|radio|dropdown|accordion|heading-section)-[a-z0-9]{8}\b/gi,
             (value, prefix) => {
                 if (!runtimeIds.has(value)) {
                     const index = (runtimeIdCounters.get(prefix) || 0) + 1;
@@ -147,7 +147,7 @@ function normalizeBuildSpecificValues(content) {
             '$1vTERM-ID',
         )
         .replace(
-            /(aria-controls=\\":\d+_element\\" tabindex=\\"\d+\\" id=\\"\d+-)[a-zA-Z0-9]{8}/g,
+            /(aria-controls=\\":([a-zA-Z0-9-]+)_element\\" tabindex=\\"\d+\\" id=\\"\2-)[a-zA-Z0-9]{8}/g,
             '$1TERM-ID',
         )
         .replace(
@@ -485,9 +485,16 @@ function compareArtifacts(expectedDir, actualDir) {
         const actualPath = path.join(actualDir, actualFiles.get(file));
         if (!file.endsWith('.html')) {
             // CLI snapshot fixtures deliberately exclude generated client bundles.
-            // Their content hashes change on every dependency rebuild; HTML links,
-            // DOM checks, and screenshots provide the useful regression signal.
-            if (file.startsWith('_bundle/')) continue;
+            // Search index and registry ordering is also nondeterministic because
+            // source pages are processed concurrently. Their presence and links
+            // remain checked, while HTML, DOM, and screenshots carry the useful
+            // semantic regression signal.
+            if (
+                file.startsWith('_bundle/') ||
+                /^_search\/.*\/hash-(?:index|registry)\.js$/.test(file)
+            ) {
+                continue;
+            }
             const expectedHash = fileHash(expectedPath, file);
             const actualHash = fileHash(actualPath, file);
             if (expectedHash !== actualHash) {

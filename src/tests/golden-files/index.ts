@@ -202,13 +202,15 @@ test.describe('Golden File Comparison', () => {
         test('should normalize structured tabs and terms runtime ids', () => {
             const input = [
                 'defaultTabsGroup-a1b2c3d4 regular-z9y8x7w6 regular-z9y8x7w6',
-                'aria-controls=\\":1_element\\" tabindex=\\"0\\" id=\\"1-a1b2c3d4\\"',
+                'heading-section-a1b2c3d4 heading-section-a1b2c3d4',
+                'aria-controls=\\":lint-term-1_element\\" tabindex=\\"0\\" id=\\"lint-term-1-a1b2c3d4\\"',
             ].join(' ');
 
             expect(compareArtifacts.normalizeBuildSpecificValues(input)).toBe(
                 [
                     'defaultTabsGroup-RUNTIME-ID-1 regular-RUNTIME-ID-1 regular-RUNTIME-ID-1',
-                    'aria-controls=\\":1_element\\" tabindex=\\"0\\" id=\\"1-TERM-ID\\"',
+                    'heading-section-RUNTIME-ID-1 heading-section-RUNTIME-ID-1',
+                    'aria-controls=\\":lint-term-1_element\\" tabindex=\\"0\\" id=\\"lint-term-1-TERM-ID\\"',
                 ].join(' '),
             );
         });
@@ -340,6 +342,22 @@ test.describe('Golden File Comparison', () => {
                 fs.writeFileSync(
                     path.join(actualSearchDir, '1789031362748-resources.js'),
                     'window.resources = {index: "same-index.js"};',
+                );
+                fs.writeFileSync(
+                    path.join(expectedSearchDir, '111111111111-index.js'),
+                    'nondeterministic base index ordering',
+                );
+                fs.writeFileSync(
+                    path.join(actualSearchDir, '222222222222-index.js'),
+                    'nondeterministic candidate index ordering',
+                );
+                fs.writeFileSync(
+                    path.join(expectedSearchDir, '333333333333-registry.js'),
+                    'nondeterministic base registry ordering',
+                );
+                fs.writeFileSync(
+                    path.join(actualSearchDir, '444444444444-registry.js'),
+                    'nondeterministic candidate registry ordering',
                 );
                 fs.writeFileSync(
                     path.join(expectedDir, 'index.html'),
