@@ -141,6 +141,9 @@ Repositories without a dedicated consumer map still receive standalone, metapack
 verification. The generated integration lockfile, corpus, reports, screenshots, and traces are
 uploaded as exact-SHA evidence.
 
+The verification scripts are checked out from the same commit as the reusable workflow itself, so a
+moving `master` branch cannot mix workflow logic and tooling from different revisions during a run.
+
 ## TOC Navigation {#toc-navigation}
 
 This page is registered under the Syntax section of the table of contents.
