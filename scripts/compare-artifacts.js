@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Compare build artifacts (file tree + normalized HTML) between expected
+ * Compare build artifacts (file tree + normalized HTML/Markdown) between expected
  * (base SHA) and actual (PR head SHA) corpus builds.
  *
  * Usage:
@@ -13,7 +13,8 @@
  * The comparison covers:
  * 1. Output file tree — relative file paths that exist in one but not the other
  * 2. Normalized HTML — whitespace-collapsed, attribute-sorted HTML comparison
- * 3. Asset links — references to assets in HTML are checked for consistency
+ * 3. Normalized Markdown and other text artifacts — content and readable diffs
+ * 4. Asset links — references to assets in HTML are checked for consistency
  *
  * Exits 0 when identical, 1 when differences are found.
  *
@@ -85,6 +86,8 @@ function diffFileTree(expectedFiles, actualFiles) {
 
 const DYNAMIC_BUNDLE_PATH = /(^|\/)_bundle\/\d+-[a-f0-9]{12,16}(?:\.[a-z0-9]+)*\.[a-z0-9]+$/i;
 const DYNAMIC_BUNDLE_REFERENCE = String.raw`_bundle\/\d+-[a-f0-9]{12,16}(?:\.[a-z0-9]+)*\.[a-z0-9]+`;
+const TEXT_ARTIFACT_PATH = /\.(?:css|html?|js|json|md|svg|txt|xml|ya?ml|yfm)$/i;
+const READABLE_DIFF_PATH = /\.(?:json|md|txt|ya?ml|yfm)$/i;
 
 function stripDynamicBundleReferences(content) {
     if (!new RegExp(DYNAMIC_BUNDLE_REFERENCE).test(content)) return content;
@@ -157,6 +160,90 @@ function normalizeBuildSpecificValues(content) {
 }
 
 /**
+ * Normalize diagnostic-only values in generated Markdown build metadata.
+ * Structural fields and counters remain comparable, while timestamps, paths,
+ * timings, byte sizes, hashes, and host details do not create false diffs.
+ * @param {string} content - JSON artifact content.
+ * @param {string} relativePath - Artifact path.
+ * @returns {string} Stable JSON or the original content when it cannot be parsed.
+ */
+function normalizeGeneratedJson(content, relativePath) {
+    if (relativePath !== 'yfm-build-stats.json' && relativePath !== 'yfm-build-content.json') {
+        return content;
+    }
+
+    try {
+        const value = JSON.parse(content);
+        if (relativePath === 'yfm-build-stats.json') {
+            if (value.cli) {
+                value.cli = {
+                    ...value.cli,
+                    version: 'DIPLODOC-VERSION',
+                    node: 'NODE-VERSION',
+                    platform: 'PLATFORM',
+                    arch: 'ARCH',
+                    osRelease: 'OS-RELEASE',
+                };
+            }
+            if (value.build) {
+                value.build.startedAt = 'TIMESTAMP';
+                value.build.finishedAt = 'TIMESTAMP';
+                value.build.durationMs = 0;
+                value.build.phasesMs = Object.fromEntries(
+                    Object.keys(value.build.phasesMs || {}).map((key) => [key, 0]),
+                );
+                value.build.inputDir = 'INPUT-DIR';
+                value.build.outputDir = 'OUTPUT-DIR';
+                value.build.memoryUsageMb = 0;
+            }
+            if (value.counters) value.counters.contentBytes = 0;
+            if (value.output) {
+                value.output.totalBytes = 0;
+                value.output.bytesByExtension = Object.fromEntries(
+                    Object.keys(value.output.bytesByExtension || {}).map((key) => [key, 0]),
+                );
+            }
+        } else {
+            for (const entry of Object.values(value.contentHashes || {})) {
+                entry.hash = 'sha256-HASH';
+                entry.size = 0;
+            }
+        }
+        return JSON.stringify(sortJsonKeys(value), null, 2);
+    } catch {
+        return content;
+    }
+}
+
+/**
+ * Recursively sort JSON object keys so concurrent build insertion order does
+ * not become a semantic corpus difference.
+ * @param {unknown} value - Parsed JSON value.
+ * @returns {unknown} Value with recursively sorted object keys.
+ */
+function sortJsonKeys(value) {
+    if (Array.isArray(value)) return value.map(sortJsonKeys);
+    if (value === null || typeof value !== 'object') return value;
+
+    return Object.fromEntries(
+        Object.entries(value)
+            .sort(([left], [right]) => left.localeCompare(right))
+            .map(([key, child]) => [key, sortJsonKeys(child)]),
+    );
+}
+
+/**
+ * Normalize a textual artifact using the same build invariants for both HTML
+ * and Markdown corpus output.
+ * @param {string} content - Raw textual artifact.
+ * @param {string} [relativePath=''] - Artifact path.
+ * @returns {string} Stable content for comparison.
+ */
+function normalizeArtifactContent(content, relativePath = '') {
+    return normalizeGeneratedJson(normalizeBuildSpecificValues(content), relativePath);
+}
+
+/**
  * Map build-specific artifact names to a stable comparison identity.
  * The search resources filename contains a build timestamp, while its contents
  * still point to the content-addressed index and registry files.
@@ -215,7 +302,7 @@ function normalizeGeneratedReferences(content) {
  * @returns {string} Normalized HTML.
  */
 function normalizeHtml(html) {
-    return normalizeBuildSpecificValues(html)
+    return normalizeArtifactContent(html)
         .replace(/<style[\s\S]*?<\/style>/g, (m) => {
             return m.replace(/\s+/g, ' ').trim();
         })
@@ -447,11 +534,50 @@ function compareAssetLinks(expectedPath, actualPath) {
     return {added, removed};
 }
 
+/**
+ * Compare normalized text and return a compact diff around the changed lines.
+ * @param {string} expectedPath - Expected artifact path.
+ * @param {string} actualPath - Actual artifact path.
+ * @param {string} relativePath - Relative artifact path.
+ * @returns {string[]} Readable diff lines.
+ */
+function compareTextFile(expectedPath, actualPath, relativePath) {
+    const expected = normalizeArtifactContent(fs.readFileSync(expectedPath, 'utf-8'), relativePath);
+    const actual = normalizeArtifactContent(fs.readFileSync(actualPath, 'utf-8'), relativePath);
+    if (expected === actual) return [];
+
+    const expectedLines = expected.split('\n');
+    const actualLines = actual.split('\n');
+    let prefix = 0;
+    while (
+        prefix < expectedLines.length &&
+        prefix < actualLines.length &&
+        expectedLines[prefix] === actualLines[prefix]
+    ) {
+        prefix++;
+    }
+
+    let suffix = 0;
+    while (
+        suffix < expectedLines.length - prefix &&
+        suffix < actualLines.length - prefix &&
+        expectedLines[expectedLines.length - 1 - suffix] ===
+            actualLines[actualLines.length - 1 - suffix]
+    ) {
+        suffix++;
+    }
+
+    const expectedChanged = expectedLines.slice(prefix, expectedLines.length - suffix).join('\n');
+    const actualChanged = actualLines.slice(prefix, actualLines.length - suffix).join('\n');
+    const [expectedExcerpt, actualExcerpt] = contextualDiff(expectedChanged, actualChanged, 1200);
+    return [`@@ line ${prefix + 1} @@`, `- ${expectedExcerpt}`, `+ ${actualExcerpt}`];
+}
+
 function fileHash(filePath, relativePath = '') {
     const raw = fs.readFileSync(filePath);
     let content = raw;
-    if (/\.(?:css|html?|js|json|svg|txt|xml|yfm)$/i.test(relativePath)) {
-        content = Buffer.from(normalizeBuildSpecificValues(raw.toString('utf-8')));
+    if (TEXT_ARTIFACT_PATH.test(relativePath)) {
+        content = Buffer.from(normalizeArtifactContent(raw.toString('utf-8'), relativePath));
     }
     return createHash('sha256').update(content).digest('hex');
 }
@@ -498,7 +624,10 @@ function compareArtifacts(expectedDir, actualDir) {
             const expectedHash = fileHash(expectedPath, file);
             const actualHash = fileHash(actualPath, file);
             if (expectedHash !== actualHash) {
-                contentDiffs.push({file, expectedHash, actualHash});
+                const diff = READABLE_DIFF_PATH.test(file)
+                    ? compareTextFile(expectedPath, actualPath, file)
+                    : [];
+                contentDiffs.push({file, expectedHash, actualHash, diff});
             }
             continue;
         }
@@ -598,6 +727,11 @@ function renderReport(result) {
         lines.push('### Asset Content Differences\n');
         for (const diff of contentDiffs) {
             lines.push(`- \`${diff.file}\` (SHA-256 changed)`);
+            if (diff.diff && diff.diff.length > 0) {
+                lines.push('', '  ```diff');
+                for (const line of diff.diff) lines.push(`  ${line}`);
+                lines.push('  ```');
+            }
         }
         lines.push('');
     }
@@ -651,6 +785,9 @@ module.exports = {
     indexArtifactPaths,
     normalizeGeneratedReferences,
     normalizeBuildSpecificValues,
+    normalizeGeneratedJson,
+    sortJsonKeys,
+    normalizeArtifactContent,
     normalizeHtml,
     contextualDiff,
     compareDiplodocState,
@@ -659,6 +796,7 @@ module.exports = {
     compareHtmlFile,
     extractAssetLinks,
     compareAssetLinks,
+    compareTextFile,
     fileHash,
     compareArtifacts,
     renderReport,

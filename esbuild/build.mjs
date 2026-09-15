@@ -31,14 +31,6 @@ const server = {
 };
 
 /** @type {import('esbuild').BuildOptions}*/
-const profiles = {
-    ...common,
-    entryPoints: ['src/verification-profiles/index.ts'],
-    outfile: outDir + '/verification-profiles/index.js',
-    platform: 'node',
-};
-
-/** @type {import('esbuild').BuildOptions}*/
 const tests = {
     ...common,
     entryPoints: await glob('**/*.ts', {cwd: 'src/tests', absolute: true}),
@@ -49,5 +41,4 @@ const tests = {
 
 build(config);
 build(server);
-build(profiles);
 build(tests);

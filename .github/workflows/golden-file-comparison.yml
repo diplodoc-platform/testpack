@@ -101,29 +101,57 @@ jobs:
           echo "base-sha=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
           echo "head-sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
 
-      - name: Build corpus (base SHA — expected)
+      - name: Build HTML corpus (base SHA — expected)
         if: steps.scope.outputs.run-comparison == 'true'
         run: |
           node scripts/build-corpus.js \
             --ref "${{ steps.shas.outputs.base-sha }}" \
-            --output artifacts/expected/
+            --output artifacts/expected/html \
+            --format html
 
-      - name: Build corpus (head SHA — actual)
+      - name: Build HTML corpus (head SHA — actual)
         if: steps.scope.outputs.run-comparison == 'true'
         run: |
           node scripts/build-corpus.js \
             --ref "${{ steps.shas.outputs.head-sha }}" \
-            --output artifacts/actual/
+            --output artifacts/actual/html \
+            --format html
 
-      - name: Compare artifacts (file tree + normalized HTML + asset links)
+      - name: Build Markdown corpus (base SHA — expected)
         if: steps.scope.outputs.run-comparison == 'true'
-        id: compare-artifacts
+        run: |
+          node scripts/build-corpus.js \
+            --ref "${{ steps.shas.outputs.base-sha }}" \
+            --output artifacts/expected/md \
+            --format md
+
+      - name: Build Markdown corpus (head SHA — actual)
+        if: steps.scope.outputs.run-comparison == 'true'
+        run: |
+          node scripts/build-corpus.js \
+            --ref "${{ steps.shas.outputs.head-sha }}" \
+            --output artifacts/actual/md \
+            --format md
+
+      - name: Compare HTML artifacts (file tree + normalized HTML + asset links)
+        if: steps.scope.outputs.run-comparison == 'true'
+        id: compare-html
         continue-on-error: true
         run: |
           node scripts/compare-artifacts.js \
-            --expected artifacts/expected/output/ \
-            --actual artifacts/actual/output/ \
-            --report artifacts/diff.md
+            --expected artifacts/expected/html/output/ \
+            --actual artifacts/actual/html/output/ \
+            --report artifacts/html-diff.md
+
+      - name: Compare Markdown artifacts
+        if: steps.scope.outputs.run-comparison == 'true'
+        id: compare-markdown
+        continue-on-error: true
+        run: |
+          node scripts/compare-artifacts.js \
+            --expected artifacts/expected/md/output/ \
+            --actual artifacts/actual/md/output/ \
+            --report artifacts/markdown-diff.md
 
       - name: Compare SVG DOM (id, href, viewBox, masks, gradients)
         if: steps.scope.outputs.run-comparison == 'true'
@@ -131,8 +159,8 @@ jobs:
         continue-on-error: true
         run: |
           node scripts/compare-svg-dom.js \
-            --expected artifacts/expected/output/ \
-            --actual artifacts/actual/output/ \
+            --expected artifacts/expected/html/output/ \
+            --actual artifacts/actual/html/output/ \
             --report artifacts/svg-diff.md
 
       - name: Capture screenshots (visual regression)
@@ -154,7 +182,8 @@ jobs:
           path: |
             artifacts/expected/
             artifacts/actual/
-            artifacts/diff.md
+            artifacts/html-diff.md
+            artifacts/markdown-diff.md
             artifacts/svg-diff.md
             artifacts/playwright-output/
             artifacts/playwright-report/
@@ -163,13 +192,16 @@ jobs:
       - name: Write comparison reports to job summary
         if: always() && steps.scope.outputs.run-comparison == 'true'
         run: |
-          if [ -f artifacts/diff.md ]; then
-            cat artifacts/diff.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -f artifacts/html-diff.md ]; then
+            cat artifacts/html-diff.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ -f artifacts/markdown-diff.md ]; then
+            cat artifacts/markdown-diff.md >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ -f artifacts/svg-diff.md ]; then
             cat artifacts/svg-diff.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Fail if differences detected
-        if: steps.scope.outputs.run-comparison == 'true' && (steps.compare-artifacts.outcome == 'failure' || steps.compare-svg.outcome == 'failure' || steps.screenshots.outcome == 'failure')
+        if: steps.scope.outputs.run-comparison == 'true' && (steps.compare-html.outcome == 'failure' || steps.compare-markdown.outcome == 'failure' || steps.compare-svg.outcome == 'failure' || steps.screenshots.outcome == 'failure')
         run: exit 1
