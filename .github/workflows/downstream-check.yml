@@ -188,12 +188,18 @@ jobs:
             --allow-invalid
         working-directory: metapackage
 
-      - name: Build reference corpus
+      - name: Build reference HTML and Markdown corpus
         run: |
-          mkdir -p "${{ github.workspace }}/artifacts/expected"
+          mkdir -p "${{ github.workspace }}/artifacts/expected/html"
+          mkdir -p "${{ github.workspace }}/artifacts/expected/md"
           node ../../packages/cli/build/index.js build \
             -i docs/input \
-            -o "${{ github.workspace }}/artifacts/expected/output"
+            -o "${{ github.workspace }}/artifacts/expected/html/output" \
+            --output-format html
+          node ../../packages/cli/build/index.js build \
+            -i docs/input \
+            -o "${{ github.workspace }}/artifacts/expected/md/output" \
+            --output-format md
         working-directory: metapackage/devops/testpack
 
       - name: Replace submodule with candidate SHA
@@ -236,12 +242,18 @@ jobs:
         run: npm test --workspace "${PACKAGE_NAME}" --if-present
         working-directory: metapackage
 
-      - name: Build candidate corpus
+      - name: Build candidate HTML and Markdown corpus
         run: |
-          mkdir -p "${{ github.workspace }}/artifacts/actual"
+          mkdir -p "${{ github.workspace }}/artifacts/actual/html"
+          mkdir -p "${{ github.workspace }}/artifacts/actual/md"
           node ../../packages/cli/build/index.js build \
             -i docs/input \
-            -o "${{ github.workspace }}/artifacts/actual/output"
+            -o "${{ github.workspace }}/artifacts/actual/html/output" \
+            --output-format html
+          node ../../packages/cli/build/index.js build \
+            -i docs/input \
+            -o "${{ github.workspace }}/artifacts/actual/md/output" \
+            --output-format md
         working-directory: metapackage/devops/testpack
 
       - name: Run candidate browser and screenshot regression
@@ -262,10 +274,19 @@ jobs:
             --package "${{ inputs.package }}" \
             --pr-sha "${{ inputs.pr-sha }}" \
             --metapackage-root metapackage \
-            --expected artifacts/expected/output/ \
-            --actual artifacts/actual/output/ \
+            --expected artifacts/expected/html/output/ \
+            --actual artifacts/actual/html/output/ \
             --output artifacts/downstream/ \
             --report artifacts/downstream-report.md
+
+      - name: Compare Markdown corpus
+        id: markdown
+        continue-on-error: true
+        run: |
+          node tools/testpack/scripts/compare-artifacts.js \
+            --expected artifacts/expected/md/output/ \
+            --actual artifacts/actual/md/output/ \
+            --report artifacts/markdown-diff.md
 
       - name: Upload deep verification evidence
         if: always()
@@ -275,6 +296,7 @@ jobs:
           path: |
             artifacts/downstream/
             artifacts/downstream-report.md
+            artifacts/markdown-diff.md
             artifacts/expected/
             artifacts/actual/
             artifacts/base-package-targets.json
@@ -291,7 +313,10 @@ jobs:
           if [ -f artifacts/downstream-report.md ]; then
             cat artifacts/downstream-report.md >> "$GITHUB_STEP_SUMMARY"
           fi
+          if [ -f artifacts/markdown-diff.md ]; then
+            cat artifacts/markdown-diff.md >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Fail if downstream verification failed
-        if: steps.downstream.outcome == 'failure'
+        if: steps.downstream.outcome == 'failure' || steps.markdown.outcome == 'failure'
         run: exit 1

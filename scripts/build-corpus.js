@@ -4,14 +4,14 @@
  * Build the reference document corpus at a specific git ref.
  *
  * Usage:
- *   node scripts/build-corpus.js --ref <sha-or-branch> --output <dir>
- *   node scripts/build-corpus.js --ref HEAD --output artifacts/actual/
- *   node scripts/build-corpus.js --ref ${BASE_SHA} --output artifacts/expected/
+ *   node scripts/build-corpus.js --ref <sha-or-branch> --output <dir> [--format html|md]
+ *   node scripts/build-corpus.js --ref HEAD --output artifacts/actual/html --format html
+ *   node scripts/build-corpus.js --ref ${BASE_SHA} --output artifacts/expected/md --format md
  *
  * This script:
  * 1. Resolves the git ref to a full commit SHA
  * 2. Creates an isolated detached git worktree for the ref
- * 3. Runs `npm ci` (or `npm install` if no lockfile) + `npm run docs`
+ * 3. Runs `npm ci` (or `npm install` if no lockfile) + `npm run docs` for the requested format
  * 4. Copies the `docs/output/` tree to the specified output directory
  * 5. Writes a metadata.json with the ref, SHA, timestamp, and node version
  * 6. Removes the temporary worktree
@@ -61,6 +61,19 @@ function resolveSha(ref) {
 }
 
 /**
+ * Validate and normalize the requested CLI output format.
+ * @param {string | undefined} format - Requested format.
+ * @returns {'html' | 'md'} Supported output format.
+ */
+function normalizeFormat(format) {
+    const value = format || 'html';
+    if (value !== 'html' && value !== 'md') {
+        throw new Error(`Unsupported corpus format: ${value}`);
+    }
+    return value;
+}
+
+/**
  * Recursively copy a directory.
  * @param {string} src - Source directory.
  * @param {string} dest - Destination directory.
@@ -94,12 +107,14 @@ function rmrf(dir) {
  * @param {string} outputDir - Output directory.
  * @param {string} ref - Original ref argument.
  * @param {string} sha - Resolved commit SHA.
+ * @param {'html' | 'md'} format - CLI output format.
  * @returns {void}
  */
-function writeMetadata(outputDir, ref, sha) {
+function writeMetadata(outputDir, ref, sha, format) {
     const meta = {
         ref,
         sha,
+        format,
         timestamp: new Date().toISOString(),
         nodeVersion: process.version,
         platform: process.platform,
@@ -115,10 +130,12 @@ function writeMetadata(outputDir, ref, sha) {
  * Build the corpus at a given git ref and copy output to the target directory.
  * @param {string} ref - Git ref (branch, tag, SHA).
  * @param {string} outputDir - Destination directory for the corpus.
+ * @param {'html' | 'md'} [format='html'] - CLI output format.
  * @returns {void}
  */
-function buildCorpus(ref, outputDir) {
+function buildCorpus(ref, outputDir, format = 'html') {
     const sha = resolveSha(ref);
+    const outputFormat = normalizeFormat(format);
     const destination = path.resolve(outputDir);
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'diplodoc-corpus-'));
     const worktree = path.join(tempRoot, 'worktree');
@@ -131,7 +148,10 @@ function buildCorpus(ref, outputDir) {
             execFileSync('npm', ['install'], {cwd: worktree, stdio: 'inherit'});
         }
 
-        execFileSync('npm', ['run', 'docs'], {cwd: worktree, stdio: 'inherit'});
+        execFileSync('npm', ['run', 'docs', '--', '--output-format', outputFormat], {
+            cwd: worktree,
+            stdio: 'inherit',
+        });
 
         rmrf(destination);
         const docsOutput = path.join(worktree, 'docs', 'output');
@@ -141,7 +161,7 @@ function buildCorpus(ref, outputDir) {
             throw new Error(`Corpus build produced no docs/output for ${sha}`);
         }
 
-        writeMetadata(destination, ref, sha);
+        writeMetadata(destination, ref, sha, outputFormat);
     } finally {
         if (fs.existsSync(worktree)) {
             execFileSync('git', ['worktree', 'remove', '--force', worktree], {stdio: 'pipe'});
@@ -154,14 +174,17 @@ function main() {
     const args = parseArgs();
     const ref = args.ref;
     const output = args.output;
+    const format = args.format || 'html';
 
     if (!ref || !output) {
-        console.error('Usage: build-corpus.js --ref <sha-or-branch> --output <dir>');
+        console.error(
+            'Usage: build-corpus.js --ref <sha-or-branch> --output <dir> [--format html|md]',
+        );
         process.exit(1);
     }
 
-    buildCorpus(ref, output);
-    console.log(`Corpus built from "${ref}" -> ${output}`);
+    buildCorpus(ref, output, format);
+    console.log(`Corpus (${format}) built from "${ref}" -> ${output}`);
 }
 
 if (require.main === module) {
@@ -171,6 +194,7 @@ if (require.main === module) {
 module.exports = {
     parseArgs,
     resolveSha,
+    normalizeFormat,
     copyDir,
     rmrf,
     writeMetadata,

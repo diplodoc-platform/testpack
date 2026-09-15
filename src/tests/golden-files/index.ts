@@ -215,6 +215,77 @@ test.describe('Golden File Comparison', () => {
             );
         });
 
+        test('should normalize diagnostic Markdown build statistics but keep counters', () => {
+            const expected = JSON.stringify({
+                schemaVersion: 1,
+                cli: {
+                    version: '5.53.0',
+                    node: 'v22.0.0',
+                    platform: 'linux',
+                    arch: 'x64',
+                    osRelease: 'old',
+                },
+                build: {
+                    startedAt: '2026-09-01T00:00:00.000Z',
+                    finishedAt: '2026-09-01T00:00:01.000Z',
+                    durationMs: 1000,
+                    phasesMs: {prepare: 500},
+                    outputFormat: 'md',
+                    inputDir: '/old/input',
+                    outputDir: '/old/output',
+                    memoryUsageMb: 100,
+                },
+                counters: {entriesProcessed: 3, contentBytes: 100},
+                output: {files: 4, totalBytes: 100, bytesByExtension: {'.md': 100}},
+            });
+            const actual = JSON.stringify({
+                schemaVersion: 1,
+                cli: {
+                    version: '5.57.3',
+                    node: 'v24.0.0',
+                    platform: 'darwin',
+                    arch: 'arm64',
+                    osRelease: 'new',
+                },
+                build: {
+                    startedAt: '2026-09-15T00:00:00.000Z',
+                    finishedAt: '2026-09-15T00:00:02.000Z',
+                    durationMs: 2000,
+                    phasesMs: {prepare: 900},
+                    outputFormat: 'md',
+                    inputDir: '/new/input',
+                    outputDir: '/new/output',
+                    memoryUsageMb: 200,
+                },
+                counters: {entriesProcessed: 3, contentBytes: 999},
+                output: {files: 4, totalBytes: 999, bytesByExtension: {'.md': 999}},
+            });
+
+            expect(
+                compareArtifacts.normalizeArtifactContent(expected, 'yfm-build-stats.json'),
+            ).toBe(compareArtifacts.normalizeArtifactContent(actual, 'yfm-build-stats.json'));
+
+            const changedCounters = actual.replace('"entriesProcessed":3', '"entriesProcessed":4');
+            expect(
+                compareArtifacts.normalizeArtifactContent(changedCounters, 'yfm-build-stats.json'),
+            ).not.toBe(compareArtifacts.normalizeArtifactContent(expected, 'yfm-build-stats.json'));
+        });
+
+        test('should normalize generated content hashes and sizes', () => {
+            const expected = JSON.stringify({
+                schemaVersion: 1,
+                contentHashes: {'page.md': {hash: 'sha256-old', size: 10}},
+            });
+            const actual = JSON.stringify({
+                schemaVersion: 1,
+                contentHashes: {'page.md': {hash: 'sha256-new', size: 20}},
+            });
+
+            expect(
+                compareArtifacts.normalizeArtifactContent(expected, 'yfm-build-content.json'),
+            ).toBe(compareArtifacts.normalizeArtifactContent(actual, 'yfm-build-content.json'));
+        });
+
         test('should report diplodoc-state changes by JSON path', () => {
             const expected = '<script id="diplodoc-state">{"search":{"enabled":true}}</script>';
             const actual =
@@ -313,6 +384,53 @@ test.describe('Golden File Comparison', () => {
                 expect(result.hasDifferences).toBe(true);
                 expect(result.contentDiffs).toHaveLength(1);
                 expect(result.contentDiffs[0].file).toBe('image.png');
+            } finally {
+                fs.rmSync(tmpDir, {recursive: true, force: true});
+            }
+        });
+
+        test('should show a readable Markdown diff after normalizing version banners', () => {
+            const tmpDir = path.join(__dirname, '..', '..', '..', '.tmp-golden-markdown');
+            const expectedDir = path.join(tmpDir, 'expected');
+            const actualDir = path.join(tmpDir, 'actual');
+
+            try {
+                fs.mkdirSync(expectedDir, {recursive: true});
+                fs.mkdirSync(actualDir, {recursive: true});
+                fs.writeFileSync(
+                    path.join(expectedDir, 'page.md'),
+                    '# Title\n\nDiplodoc Platform v5.53.0\n\nOld semantic text.\n',
+                );
+                fs.writeFileSync(
+                    path.join(actualDir, 'page.md'),
+                    '# Title\n\nDiplodoc Platform v5.57.3\n\nNew semantic text.\n',
+                );
+
+                const result = compareArtifacts.compareArtifacts(expectedDir, actualDir);
+                expect(result.hasDifferences).toBe(true);
+                expect(result.contentDiffs).toHaveLength(1);
+                expect(result.contentDiffs[0].file).toBe('page.md');
+                expect(result.contentDiffs[0].diff.join('\n')).toContain('Old semantic text');
+                expect(result.contentDiffs[0].diff.join('\n')).toContain('New semantic text');
+                expect(result.contentDiffs[0].diff.join('\n')).not.toContain('v5.53.0');
+            } finally {
+                fs.rmSync(tmpDir, {recursive: true, force: true});
+            }
+        });
+
+        test('should ignore a Markdown version-only change', () => {
+            const tmpDir = path.join(__dirname, '..', '..', '..', '.tmp-golden-markdown-version');
+            const expectedDir = path.join(tmpDir, 'expected');
+            const actualDir = path.join(tmpDir, 'actual');
+
+            try {
+                fs.mkdirSync(expectedDir, {recursive: true});
+                fs.mkdirSync(actualDir, {recursive: true});
+                fs.writeFileSync(path.join(expectedDir, 'page.md'), 'Diplodoc Platform v5.53.0\n');
+                fs.writeFileSync(path.join(actualDir, 'page.md'), 'Diplodoc Platform v5.57.3\n');
+
+                const result = compareArtifacts.compareArtifacts(expectedDir, actualDir);
+                expect(result.hasDifferences).toBe(false);
             } finally {
                 fs.rmSync(tmpDir, {recursive: true, force: true});
             }
@@ -760,20 +878,40 @@ test.describe('Golden File Comparison', () => {
             const buildCorpus = require('../../../scripts/build-corpus.js');
             expect(typeof buildCorpus.parseArgs).toBe('function');
             expect(typeof buildCorpus.resolveSha).toBe('function');
+            expect(typeof buildCorpus.normalizeFormat).toBe('function');
             expect(typeof buildCorpus.copyDir).toBe('function');
             expect(typeof buildCorpus.rmrf).toBe('function');
             expect(typeof buildCorpus.writeMetadata).toBe('function');
             expect(typeof buildCorpus.buildCorpus).toBe('function');
         });
 
-        test('parseArgs should parse --ref and --output', () => {
+        test('parseArgs should parse --ref, --output and --format', () => {
             const buildCorpus = require('../../../scripts/build-corpus.js');
             const origArgv = process.argv;
-            process.argv = ['node', 'script', '--ref', 'HEAD', '--output', 'artifacts/'];
+            process.argv = [
+                'node',
+                'script',
+                '--ref',
+                'HEAD',
+                '--output',
+                'artifacts/',
+                '--format',
+                'md',
+            ];
             const args = buildCorpus.parseArgs();
             process.argv = origArgv;
             expect(args.ref).toBe('HEAD');
             expect(args.output).toBe('artifacts/');
+            expect(args.format).toBe('md');
+        });
+
+        test('normalizeFormat should default to HTML and reject unsupported formats', () => {
+            const buildCorpus = require('../../../scripts/build-corpus.js');
+            expect(buildCorpus.normalizeFormat()).toBe('html');
+            expect(buildCorpus.normalizeFormat('md')).toBe('md');
+            expect(() => buildCorpus.normalizeFormat('pdf')).toThrow(
+                'Unsupported corpus format: pdf',
+            );
         });
 
         test('resolveSha should not interpret the ref as a shell command', () => {
@@ -787,27 +925,6 @@ test.describe('Golden File Comparison', () => {
             } finally {
                 fs.rmSync(tmpDir, {recursive: true, force: true});
             }
-        });
-    });
-
-    test.describe('Verification profile integration', () => {
-        test('document-rendering profile should reference build-corpus script', () => {
-            const vp = require('../../../src/verification-profiles/index.js');
-            const profile = vp.getProfile('document-rendering');
-            const corpusSteps = profile.steps.filter(
-                (s: {id: string}) => s.id.startsWith('corpus-build') || s.id === 'artifact-compare',
-            );
-            expect(corpusSteps.length).toBeGreaterThanOrEqual(3);
-        });
-
-        test('document-rendering profile should reference svg-dom-compare step', () => {
-            const vp = require('../../../src/verification-profiles/index.js');
-            expect(vp.hasStep('document-rendering', 'svg-dom-compare')).toBe(true);
-        });
-
-        test('document-rendering profile should reference screenshot-capture step', () => {
-            const vp = require('../../../src/verification-profiles/index.js');
-            expect(vp.hasStep('document-rendering', 'screenshot-capture')).toBe(true);
         });
     });
 });

@@ -7,13 +7,15 @@ a substitute for checking the required GitHub status checks on the target PR.
 
 `scripts/build-corpus.js` resolves the requested ref to a full commit SHA and
 creates a detached temporary Git worktree. It installs locked dependencies,
-builds `docs/output`, copies the result to the requested artifact directory and
-always removes the temporary worktree. It never stashes, switches or restores
-the caller's checkout.
+builds `docs/output` in the requested CLI format, copies the result to the
+requested artifact directory and always removes the temporary worktree. It
+never stashes, switches or restores the caller's checkout.
 
 ```bash
-node scripts/build-corpus.js --ref "${BASE_SHA}" --output artifacts/expected/
-node scripts/build-corpus.js --ref "${HEAD_SHA}" --output artifacts/actual/
+node scripts/build-corpus.js --ref "${BASE_SHA}" --output artifacts/expected/html --format html
+node scripts/build-corpus.js --ref "${HEAD_SHA}" --output artifacts/actual/html --format html
+node scripts/build-corpus.js --ref "${BASE_SHA}" --output artifacts/expected/md --format md
+node scripts/build-corpus.js --ref "${HEAD_SHA}" --output artifacts/actual/md --format md
 ```
 
 Missing `docs/output` is an error. The produced `metadata.json` records the ref,
@@ -21,11 +23,14 @@ resolved SHA, Node version and platform.
 
 ## Artifact comparison
 
-`scripts/compare-artifacts.js` compares the complete file tree, normalized HTML
-and referenced assets. JavaScript contents are preserved during normalization,
-and every common non-HTML asset is compared by SHA-256, so a same-path binary
-change is not silently accepted. Missing expected or actual directories fail
-closed.
+`scripts/compare-artifacts.js` compares the complete file tree, normalized HTML,
+generated Markdown and referenced assets. JavaScript contents are preserved
+during normalization, and every common non-HTML asset is compared by SHA-256,
+so a same-path binary change is not silently accepted. Markdown and JSON changes
+receive a readable contextual diff. Build timestamps, host paths, timings,
+generated hashes and version banners are normalized; document structure,
+counters and generated file contents remain comparable. Missing expected or
+actual directories fail closed.
 
 `scripts/compare-svg-dom.js` compares standalone and inline SVG structures. It
 tracks nesting depth, element order, critical attributes, gradients, masks and
@@ -33,13 +38,18 @@ links. Missing input directories fail closed.
 
 ```bash
 node scripts/compare-artifacts.js \
-  --expected artifacts/expected/output/ \
-  --actual artifacts/actual/output/ \
-  --report artifacts/diff.md
+  --expected artifacts/expected/html/output/ \
+  --actual artifacts/actual/html/output/ \
+  --report artifacts/html-diff.md
+
+node scripts/compare-artifacts.js \
+  --expected artifacts/expected/md/output/ \
+  --actual artifacts/actual/md/output/ \
+  --report artifacts/markdown-diff.md
 
 node scripts/compare-svg-dom.js \
-  --expected artifacts/expected/output/ \
-  --actual artifacts/actual/output/ \
+  --expected artifacts/expected/html/output/ \
+  --actual artifacts/actual/html/output/ \
   --report artifacts/svg-diff.md
 ```
 
@@ -65,39 +75,37 @@ npx playwright test --grep @screenshot --update-snapshots=none \
 The workflow uploads expected and actual corpus trees, comparison reports,
 Playwright output and the HTML report for inspection.
 
-## Core-package downstream verification
+## Exact-SHA downstream verification
 
 `.github/workflows/downstream-check.yml` checks out the Diplodoc metapackage at
 `master`, records the base package export state and base corpus, replaces only
-the selected `cli`, `components` or `transform` submodule with the exact
-40-character PR SHA, and then:
+the selected repository's registered submodule with the exact 40-character PR
+SHA, and then:
 
 1. builds all metapackage workspaces;
 2. rejects newly missing `exports`, `main`, `module` or `types` targets;
 3. runs the changed package's own tests;
-4. builds the candidate corpus and runs the complete testpack E2E suite;
-5. runs downstream consumer checks plus normalized artifact and SVG comparison.
+4. builds the candidate HTML and Markdown corpus;
+5. runs the complete testpack E2E suite for rendering profiles;
+6. runs known downstream consumer checks plus normalized HTML, Markdown and SVG
+   comparison.
 
 The workflow does not install dependencies independently inside consumer
 directories, so it tests the actual metapackage dependency graph.
 
-## Arcadia evidence
-
-Public GitHub Actions cannot execute internal Arcadia builds.
-`scripts/arcadia-check.js` therefore validates an external JSON result produced
-by the internal bridge. Evidence must match the exact package and PR SHA, use an
-HTTPS provider URL and contain at least one real consumer result. Missing,
-malformed or failing evidence exits non-zero and is reported as `UNVERIFIED`.
+The `profile` workflow input only selects the cost of this GitHub verification.
+It is not a package API and it does not represent or launch the internal Arcadia
+document check. That check remains owned by the CLI repository and its existing
+internal bridge.
 
 ## Local validation snapshot
 
-On 2026-09-05 the changed tree passed:
+On 2026-09-15 the changed tree passed:
 
-- `npm test`: 1581 passed, 2 skipped, 0 failed;
+- `npm test`: 1523 passed, 4 skipped, 0 failed;
 - `npm run typecheck`;
 - `npm run build`;
 - `npm run lint`: 0 errors and 0 warnings.
 
 The GitHub workflows were syntax-parsed locally. Their behavior with real
-GitHub rulesets, App permissions and the internal Arcadia bridge still requires
-the staged rollout described in the review handoff.
+GitHub rulesets and App permissions still requires a staged rollout.

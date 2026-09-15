@@ -65,6 +65,33 @@ This file contains instructions for AI agents working with the `@diplodoc/testpa
 - `tsconfig.json` — TypeScript configuration
 - `playwright.config.ts` — Playwright configuration (uses config from `src/config`)
 - `TESTS.md` — detailed testing guidelines and best practices
+- `VERIFICATION.md` — dependency golden-file and exact-SHA downstream verification
+
+## Testpack maintenance contract
+
+Testpack owns cross-package behavior that is observable through the real CLI
+build and browser runtime. A package repository owns its local API, parser,
+validation, error handling and combinatorial unit/integration coverage. Do not
+copy a package's test suite into testpack: add one minimal document fixture and
+one assertion only when they protect an end-to-end contract or a confirmed
+cross-package regression.
+
+When platform behavior intentionally changes:
+
+1. update the source package tests first;
+2. add or adjust the smallest corresponding testpack fixture when the behavior
+   crosses a package boundary;
+3. run both HTML and Markdown corpus comparisons plus the relevant browser
+   suite;
+4. inspect and explain every semantic golden or screenshot difference;
+5. require human CODEOWNER approval for changed baselines instead of updating
+   them automatically.
+
+Keep fixture names and test descriptions tied to behavior, not package versions,
+task numbers or release prose. Remove obsolete fixtures with the behavior they
+cover. A green corpus check is evidence only for packages that the testpack CLI
+build actually resolves; do not claim coverage for an extension until its real
+package is wired into the fixture configuration.
 
 ## Tech Stack
 

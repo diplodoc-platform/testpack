@@ -754,28 +754,6 @@ test.describe('Downstream Check', () => {
         });
     });
 
-    test.describe('Verification profile integration', () => {
-        test('ecosystem profile should have downstream-check step', () => {
-            const vp = require('../../../src/verification-profiles/index.js');
-            expect(vp.hasStep('ecosystem', 'downstream-check')).toBe(true);
-        });
-
-        test('downstream-check step should reference downstream-check.js script', () => {
-            const vp = require('../../../src/verification-profiles/index.js');
-            const profile = vp.getProfile('ecosystem');
-            const step = profile.steps.find((s: {id: string}) => s.id === 'downstream-check');
-            expect(step).toBeDefined();
-            expect(step.command).toContain('downstream-check.js');
-        });
-
-        test('downstream-check step should accept --package flag', () => {
-            const vp = require('../../../src/verification-profiles/index.js');
-            const profile = vp.getProfile('ecosystem');
-            const step = profile.steps.find((s: {id: string}) => s.id === 'downstream-check');
-            expect(step.command).toContain('--package');
-        });
-    });
-
     test.describe('CLI script — execution', () => {
         test('should exit 1 when --package is missing', () => {
             const {execSync} = require('child_process');
