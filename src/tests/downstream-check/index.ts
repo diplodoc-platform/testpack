@@ -8,6 +8,10 @@ import {expect, test} from '@playwright/test';
 const downstreamCheck = require('../../../scripts/downstream-check.js');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
+const DEEP_VERIFICATION_WORKFLOW = fs.readFileSync(
+    path.join(__dirname, '../../../.github/workflows/downstream-check.yml'),
+    'utf8',
+);
 const METAPACKAGE_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-downstream-'));
 const FIXTURE_PATHS = new Set([
     'packages',
@@ -65,6 +69,25 @@ test.describe('Downstream Check', () => {
 
     test.afterAll(() => {
         fs.rmSync(METAPACKAGE_ROOT, {recursive: true, force: true});
+    });
+
+    test.describe('deep verification workflow', () => {
+        test('should expose hoisted infra config to Playwright', () => {
+            expect(DEEP_VERIFICATION_WORKFLOW).toContain('ln -sfn \\');
+            expect(DEEP_VERIFICATION_WORKFLOW).toContain('"$PWD/node_modules/@diplodoc/infra"');
+            expect(DEEP_VERIFICATION_WORKFLOW).toContain(
+                'devops/testpack/node_modules/@diplodoc/infra',
+            );
+        });
+
+        test('should collect corpus evidence after a browser failure', () => {
+            expect(DEEP_VERIFICATION_WORKFLOW).toMatch(
+                /- name: Run candidate browser and screenshot regression[\s\S]*?id: browser[\s\S]*?continue-on-error: true/,
+            );
+            expect(DEEP_VERIFICATION_WORKFLOW).toMatch(
+                /steps\.browser\.outcome == 'failure'[\s\S]*?steps\.downstream\.outcome == 'failure'[\s\S]*?steps\.markdown\.outcome == 'failure'/,
+            );
+        });
     });
 
     test.describe('CORE_PACKAGES', () => {
