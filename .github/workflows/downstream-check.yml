@@ -256,8 +256,19 @@ jobs:
             --output-format md
         working-directory: metapackage/devops/testpack
 
+      - name: Expose hoisted infra config to Playwright
+        if: inputs.profile != 'document-transform'
+        run: |
+          mkdir -p devops/testpack/node_modules/@diplodoc
+          ln -sfn \
+            "$PWD/node_modules/@diplodoc/infra" \
+            devops/testpack/node_modules/@diplodoc/infra
+        working-directory: metapackage
+
       - name: Run candidate browser and screenshot regression
         if: inputs.profile != 'document-transform'
+        id: browser
+        continue-on-error: true
         env:
           PLAYWRIGHT_HTML_REPORT: ${{ github.workspace }}/artifacts/playwright-report
         run: |
@@ -318,5 +329,8 @@ jobs:
           fi
 
       - name: Fail if downstream verification failed
-        if: steps.downstream.outcome == 'failure' || steps.markdown.outcome == 'failure'
+        if: >-
+          steps.browser.outcome == 'failure' ||
+          steps.downstream.outcome == 'failure' ||
+          steps.markdown.outcome == 'failure'
         run: exit 1
