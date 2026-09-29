@@ -202,6 +202,17 @@ jobs:
             --output-format md
         working-directory: metapackage/devops/testpack
 
+      - name: Record base downstream consumer state
+        id: base-downstream
+        continue-on-error: true
+        run: |
+          node tools/testpack/scripts/downstream-check.js \
+            --package "${{ inputs.package }}" \
+            --metapackage-root metapackage \
+            --skip-corpus true \
+            --output artifacts/base-downstream/ \
+            --report artifacts/base-downstream-report.md
+
       - name: Replace submodule with candidate SHA
         env:
           PACKAGE_PATH: ${{ steps.package.outputs.path }}
@@ -274,7 +285,7 @@ jobs:
         run: |
           npx playwright test \
             --output "${{ github.workspace }}/artifacts/playwright-output" \
-            --trace on
+            --trace retain-on-failure
         working-directory: metapackage/devops/testpack
 
       - name: Compare corpus and run known downstream consumers
@@ -287,6 +298,7 @@ jobs:
             --metapackage-root metapackage \
             --expected artifacts/expected/html/output/ \
             --actual artifacts/actual/html/output/ \
+            --baseline artifacts/base-downstream/downstream-result.json \
             --output artifacts/downstream/ \
             --report artifacts/downstream-report.md
 
@@ -307,6 +319,8 @@ jobs:
           path: |
             artifacts/downstream/
             artifacts/downstream-report.md
+            artifacts/base-downstream/
+            artifacts/base-downstream-report.md
             artifacts/markdown-diff.md
             artifacts/expected/
             artifacts/actual/
