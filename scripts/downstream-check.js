@@ -374,6 +374,55 @@ function summarizeConsumerResults(consumerResults) {
 }
 
 /**
+ * Compare candidate consumer outcomes with a base metapackage run.
+ * Existing failures remain visible but only newly failing phases are regressions.
+ * @param {object[]} consumerResults - Candidate consumer results.
+ * @param {object} baselineResult - Base downstream-check result.
+ * @returns {object} Per-consumer comparison and regression summary.
+ */
+function compareConsumerResults(consumerResults, baselineResult) {
+    const baselineConsumers = Array.isArray(baselineResult?.consumers)
+        ? baselineResult.consumers
+        : [];
+    const baselineByConsumer = new Map(
+        baselineConsumers.map((result) => [result.consumer, result]),
+    );
+    const results = consumerResults.map((candidate) => {
+        const baseline = baselineByConsumer.get(candidate.consumer) || null;
+        let status = 'passed';
+
+        if (candidate.passed && baseline && !baseline.passed) {
+            status = 'improved';
+        } else if (!candidate.build.success) {
+            status = baseline?.build?.success === false ? 'unchanged-failure' : 'regression';
+        } else if (!candidate.test.success) {
+            status =
+                baseline?.build?.success === true && baseline?.test?.success === false
+                    ? 'unchanged-failure'
+                    : 'regression';
+        }
+
+        return {
+            consumer: candidate.consumer,
+            baselinePassed: baseline ? baseline.passed === true : null,
+            candidatePassed: candidate.passed,
+            status,
+        };
+    });
+    const regressedConsumers = results
+        .filter((result) => result.status === 'regression')
+        .map((result) => result.consumer);
+
+    return {
+        results,
+        regressions: regressedConsumers.length,
+        regressedConsumers,
+        unchangedFailures: results.filter((result) => result.status === 'unchanged-failure').length,
+        improvements: results.filter((result) => result.status === 'improved').length,
+    };
+}
+
+/**
  * Run the full cross-repository check for a supported package.
  * @param {string} pkg - Repository short name.
  * @param {object} [options] - Options.
@@ -384,6 +433,7 @@ function summarizeConsumerResults(consumerResults) {
  * @param {boolean} [options.skipBuild] - Skip consumer build step.
  * @param {boolean} [options.skipTests] - Skip consumer test step.
  * @param {boolean} [options.skipCorpus] - Skip corpus comparison step.
+ * @param {object} [options.baselineResult] - Base downstream-check result.
  * @returns {object} Downstream check result.
  */
 // eslint-disable-next-line complexity -- orchestration keeps all fail-closed states visible.
@@ -397,6 +447,7 @@ function runDownstreamCheck(pkg, options) {
         skipBuild: options.skipBuild === true,
         skipTests: options.skipTests === true,
         skipCorpus: options.skipCorpus === true,
+        baselineResult: options.baselineResult || null,
     };
 
     if (!isSupportedPackage(pkg)) {
@@ -513,6 +564,9 @@ function runDownstreamCheck(pkg, options) {
     }
 
     const summary = summarizeConsumerResults(consumerResults);
+    const baselineComparison = opts.baselineResult
+        ? compareConsumerResults(consumerResults, opts.baselineResult)
+        : null;
 
     let semanticComparison = null;
     let visualComparison = null;
@@ -543,11 +597,14 @@ function runDownstreamCheck(pkg, options) {
         metapackageRoot: opts.metapackageRoot,
         consumers: consumerResults,
         summary,
+        baselineComparison,
         semanticComparison,
         visualComparison,
         corpusError,
         corpusPassed,
-        passed: summary.failed === 0 && corpusPassed,
+        passed:
+            (baselineComparison ? baselineComparison.regressions === 0 : summary.failed === 0) &&
+            corpusPassed,
     };
 }
 
@@ -570,6 +627,13 @@ function renderReport(result) {
     lines.push(`| Consumers total | ${result.summary.total} |`);
     lines.push(`| Consumers passed | ${result.summary.passed} |`);
     lines.push(`| Consumers failed | ${result.summary.failed} |`);
+    if (result.baselineComparison) {
+        lines.push(`| Consumer regressions | ${result.baselineComparison.regressions} |`);
+        lines.push(
+            `| Unchanged baseline failures | ${result.baselineComparison.unchangedFailures} |`,
+        );
+        lines.push(`| Consumer improvements | ${result.baselineComparison.improvements} |`);
+    }
     lines.push(`| Corpus comparison | ${result.corpusPassed ? 'passed' : 'failed'} |`);
     lines.push(`| Overall result | ${result.passed ? '**PASSED**' : '**FAILED**'} |`);
     lines.push('');
@@ -587,13 +651,31 @@ function renderReport(result) {
 
     if (result.consumers.length > 0) {
         lines.push('## Consumer Results\n');
-        lines.push('| Consumer | Build | Tests | Status |');
-        lines.push('| -------- | ----- | ----- | ------ |');
+        if (result.baselineComparison) {
+            lines.push('| Consumer | Baseline | Build | Tests | Status |');
+            lines.push('| -------- | -------- | ----- | ----- | ------ |');
+        } else {
+            lines.push('| Consumer | Build | Tests | Status |');
+            lines.push('| -------- | ----- | ----- | ------ |');
+        }
         for (const c of result.consumers) {
             const buildStatus = c.build.success ? 'pass' : 'fail';
             const testStatus = c.test.success ? 'pass' : 'fail';
-            const status = c.passed ? 'PASSED' : 'FAILED';
-            lines.push(`| \`${c.consumer}\` | ${buildStatus} | ${testStatus} | ${status} |`);
+            if (result.baselineComparison) {
+                const comparison = result.baselineComparison.results.find(
+                    (item) => item.consumer === c.consumer,
+                );
+                let baselineStatus = 'missing';
+                if (comparison.baselinePassed !== null) {
+                    baselineStatus = comparison.baselinePassed ? 'pass' : 'fail';
+                }
+                lines.push(
+                    `| \`${c.consumer}\` | ${baselineStatus} | ${buildStatus} | ${testStatus} | ${comparison.status.toUpperCase()} |`,
+                );
+            } else {
+                const status = c.passed ? 'PASSED' : 'FAILED';
+                lines.push(`| \`${c.consumer}\` | ${buildStatus} | ${testStatus} | ${status} |`);
+            }
         }
         lines.push('');
 
@@ -602,6 +684,12 @@ function renderReport(result) {
             lines.push('### Failed Consumers\n');
             for (const c of failed) {
                 lines.push(`#### \`${c.consumer}\``);
+                if (result.baselineComparison) {
+                    const comparison = result.baselineComparison.results.find(
+                        (item) => item.consumer === c.consumer,
+                    );
+                    lines.push(`- **Baseline classification:** ${comparison.status}`);
+                }
                 if (c.build.error) {
                     lines.push(`- **Build error:** ${truncate(c.build.error, 300)}`);
                 }
@@ -703,6 +791,15 @@ function main() {
     const skipBuild = args['skip-build'] === 'true';
     const skipTests = args['skip-tests'] === 'true';
     const skipCorpus = args['skip-corpus'] === 'true';
+    let baselineResult = null;
+    if (args.baseline) {
+        try {
+            baselineResult = JSON.parse(fs.readFileSync(args.baseline, 'utf8'));
+        } catch (error) {
+            console.error(`Could not read baseline result: ${error.message || String(error)}`);
+            process.exit(1);
+        }
+    }
 
     const result = runDownstreamCheck(pkg, {
         prSha,
@@ -712,6 +809,7 @@ function main() {
         skipBuild,
         skipTests,
         skipCorpus,
+        baselineResult,
     });
 
     const md = renderReport(result);
@@ -765,6 +863,7 @@ module.exports = {
     runVisualComparison,
     buildConsumerResult,
     summarizeConsumerResults,
+    compareConsumerResults,
     runDownstreamCheck,
     renderReport,
     truncate,

@@ -87,6 +87,17 @@ test.describe('Downstream Check', () => {
             expect(DEEP_VERIFICATION_WORKFLOW).toMatch(
                 /steps\.browser\.outcome == 'failure'[\s\S]*?steps\.downstream\.outcome == 'failure'[\s\S]*?steps\.markdown\.outcome == 'failure'/,
             );
+            expect(DEEP_VERIFICATION_WORKFLOW).toContain('--trace retain-on-failure');
+        });
+
+        test('should compare candidate consumers with the base state', () => {
+            expect(DEEP_VERIFICATION_WORKFLOW).toContain(
+                '- name: Record base downstream consumer state',
+            );
+            expect(DEEP_VERIFICATION_WORKFLOW).toContain('--output artifacts/base-downstream/');
+            expect(DEEP_VERIFICATION_WORKFLOW).toContain(
+                '--baseline artifacts/base-downstream/downstream-result.json',
+            );
         });
     });
 
@@ -440,6 +451,73 @@ test.describe('Downstream Check', () => {
         });
     });
 
+    test.describe('compareConsumerResults', () => {
+        const passing = (consumer: string) =>
+            downstreamCheck.buildConsumerResult(
+                consumer,
+                {success: true, error: null},
+                {success: true, error: null},
+            );
+        const buildFailure = (consumer: string) =>
+            downstreamCheck.buildConsumerResult(
+                consumer,
+                {success: false, error: 'build error'},
+                {success: false, error: 'Skipped (build failed)'},
+            );
+        const testFailure = (consumer: string) =>
+            downstreamCheck.buildConsumerResult(
+                consumer,
+                {success: true, error: null},
+                {success: false, error: 'test error'},
+            );
+
+        test('should not treat an unchanged build failure as a regression', () => {
+            const comparison = downstreamCheck.compareConsumerResults(
+                [buildFailure('packages/vsc')],
+                {consumers: [buildFailure('packages/vsc')]},
+            );
+
+            expect(comparison.regressions).toBe(0);
+            expect(comparison.unchangedFailures).toBe(1);
+            expect(comparison.results[0].status).toBe('unchanged-failure');
+        });
+
+        test('should detect newly failing build and test phases', () => {
+            const comparison = downstreamCheck.compareConsumerResults(
+                [buildFailure('packages/vsc'), testFailure('extensions/page-constructor')],
+                {
+                    consumers: [passing('packages/vsc'), passing('extensions/page-constructor')],
+                },
+            );
+
+            expect(comparison.regressions).toBe(2);
+            expect(comparison.regressedConsumers).toEqual([
+                'packages/vsc',
+                'extensions/page-constructor',
+            ]);
+        });
+
+        test('should fail closed when a baseline consumer is missing', () => {
+            const comparison = downstreamCheck.compareConsumerResults(
+                [testFailure('packages/client')],
+                {consumers: []},
+            );
+
+            expect(comparison.regressions).toBe(1);
+            expect(comparison.results[0].baselinePassed).toBeNull();
+        });
+
+        test('should report an improvement when a baseline failure is fixed', () => {
+            const comparison = downstreamCheck.compareConsumerResults([passing('packages/vsc')], {
+                consumers: [buildFailure('packages/vsc')],
+            });
+
+            expect(comparison.regressions).toBe(0);
+            expect(comparison.improvements).toBe(1);
+            expect(comparison.results[0].status).toBe('improved');
+        });
+    });
+
     test.describe('runDownstreamCheck — invalid input', () => {
         test('should return error for unknown package', () => {
             const result = downstreamCheck.runDownstreamCheck('unknown', {
@@ -695,6 +773,40 @@ test.describe('Downstream Check', () => {
             expect(md).toContain('Failed Consumers');
             expect(md).toContain('build error');
             expect(md).toContain('CODEOWNER Review Required');
+        });
+
+        test('should render unchanged baseline failures without blocking the candidate', () => {
+            const failedConsumer = downstreamCheck.buildConsumerResult(
+                'packages/vsc',
+                {success: false, error: 'existing build error'},
+                {success: false, error: 'Skipped (build failed)'},
+            );
+            const baselineComparison = downstreamCheck.compareConsumerResults([failedConsumer], {
+                consumers: [failedConsumer],
+            });
+            const result = {
+                package: 'transform',
+                prSha: 'abc123',
+                metapackageRoot: '/path/to/metapkg',
+                consumers: [failedConsumer],
+                summary: {
+                    total: 1,
+                    passed: 0,
+                    failed: 1,
+                    failedConsumers: ['packages/vsc'],
+                },
+                baselineComparison,
+                semanticComparison: null,
+                visualComparison: null,
+                corpusPassed: true,
+                passed: true,
+            };
+
+            const md = downstreamCheck.renderReport(result);
+            expect(md).toContain('| Consumer regressions | 0 |');
+            expect(md).toContain('UNCHANGED-FAILURE');
+            expect(md).toContain('**PASSED**');
+            expect(md).not.toContain('CODEOWNER Review Required');
         });
 
         test('should render corpus comparison section', () => {
