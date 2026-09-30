@@ -84,30 +84,22 @@ function diffFileTree(expectedFiles, actualFiles) {
     return {added, removed, common};
 }
 
-const DYNAMIC_BUNDLE_PATH = /(^|\/)_bundle\/\d+-[a-f0-9]{12,16}(?:\.[a-z0-9]+)*\.[a-z0-9]+$/i;
 const DYNAMIC_BUNDLE_REFERENCE = String.raw`_bundle\/\d+-[a-f0-9]{12,16}(?:\.[a-z0-9]+)*\.[a-z0-9]+`;
 const TEXT_ARTIFACT_PATH = /\.(?:css|html?|js|json|md|svg|txt|xml|ya?ml|yfm)$/i;
-const READABLE_DIFF_PATH = /\.(?:json|md|txt|ya?ml|yfm)$/i;
+const READABLE_DIFF_PATH = /\.(?:css|js|json|md|svg|txt|ya?ml|yfm)$/i;
 
-function stripDynamicBundleReferences(content) {
-    if (!new RegExp(DYNAMIC_BUNDLE_REFERENCE).test(content)) return content;
-
-    return content
-        .replace(
-            new RegExp(`<script\\b[^>]*?${DYNAMIC_BUNDLE_REFERENCE}[^>]*?>\\s*<\\/script>`, 'g'),
-            '',
-        )
-        .replace(new RegExp(`<link\\b[^>]*?${DYNAMIC_BUNDLE_REFERENCE}[^>]*?\\/?>`, 'g'), '')
-        .replace(new RegExp(`\\\\?"${DYNAMIC_BUNDLE_REFERENCE}\\\\?",?`, 'g'), '')
-        .replace(new RegExp(DYNAMIC_BUNDLE_REFERENCE, 'g'), '')
-        .replace(/\[\s*,/g, '[')
-        .replace(/,\s*\]/g, ']')
-        .replace(/,\s*,/g, ',');
+function normalizeDynamicBundleReferences(content) {
+    // Preserve chunk identity, references and tag attributes. Only the build hash
+    // is nondeterministic; removing tags or entire files hides runtime changes.
+    return content.replace(new RegExp(DYNAMIC_BUNDLE_REFERENCE, 'gi'), (reference) =>
+        reference.replace(/-[a-f0-9]{12,16}(?=\.)/i, '-hash'),
+    );
 }
 
 /**
  * Normalize build-specific values using the same invariants as the CLI snapshot
- * fixtures (`platformless`, `hashless`, and `bundleless`).  Keep this generic:
+ * fixtures (`platformless` and `hashless`). Keep runtime bundle contents and
+ * references comparable rather than adopting the snapshot-only `bundleless`:
  * the base and head builds intentionally use different CLI manifests.
  * @param {string} content - Artifact path or textual artifact content.
  * @returns {string} Stable value for comparison.
@@ -117,7 +109,7 @@ function normalizeBuildSpecificValues(content) {
     const runtimeIds = new Map();
     const runtimeIdCounters = new Map();
 
-    return stripDynamicBundleReferences(normalizeGeneratedReferences(content))
+    return normalizeDynamicBundleReferences(normalizeGeneratedReferences(content))
         .replace(/\r\n/g, '\n')
         .replace(
             /_bundle\/([a-z][a-z0-9]*)-[a-f0-9]{12,16}((?:\.[a-z0-9]+)*)\.([a-z0-9]+)/gi,
@@ -240,7 +232,57 @@ function sortJsonKeys(value) {
  * @returns {string} Stable content for comparison.
  */
 function normalizeArtifactContent(content, relativePath = '') {
-    return normalizeGeneratedJson(normalizeBuildSpecificValues(content), relativePath);
+    return normalizeGeneratedJson(
+        normalizeBuildSpecificValues(normalizeSearchArtifact(content, relativePath)),
+        relativePath,
+    );
+}
+
+/**
+ * Normalize search data without executing JavaScript or discarding search behavior.
+ * @param {string} content - Raw generated script.
+ * @param {string} relativePath - Corpus-relative script path.
+ * @returns {string} Canonical data assignment or the unchanged unknown script.
+ */
+function normalizeSearchArtifact(content, relativePath) {
+    if (!/^_search\/[^/]+\/(?:hash|[a-f0-9]{12,16})-(?:index|registry)\.js$/i.test(relativePath))
+        return content;
+    const assignment = content.match(/^(self\.(?:registry|index)\s*=\s*)([\s\S]*?)(;?\s*)$/);
+    if (!assignment) return content;
+    try {
+        const value = JSON.parse(assignment[2]);
+        if (assignment[1].startsWith('self.index') && value.version === '2.3.9') {
+            const terms = value.invertedIndex
+                .slice()
+                .sort(([left], [right]) => left.localeCompare(right));
+            const ids = new Map();
+            terms.forEach(([, data], id) => {
+                if (!Number.isSafeInteger(data._index) || ids.has(data._index))
+                    throw new Error('Invalid search term identity');
+                ids.set(data._index, id);
+            });
+            value.invertedIndex = terms.map(([term, data], id) => [term, {...data, _index: id}]);
+            value.fieldVectors = value.fieldVectors
+                .map(([field, vector]) => {
+                    if (!Array.isArray(vector) || vector.length % 2)
+                        throw new Error('Invalid search vector');
+                    const pairs = [];
+                    const seen = new Set();
+                    for (let index = 0; index < vector.length; index += 2) {
+                        if (!ids.has(vector[index]) || seen.has(vector[index]))
+                            throw new Error('Unknown search term');
+                        seen.add(vector[index]);
+                        pairs.push([ids.get(vector[index]), vector[index + 1]]);
+                    }
+                    return [field, pairs.sort(([left], [right]) => left - right).flat()];
+                })
+                .sort(([left], [right]) => left.localeCompare(right));
+        }
+        return assignment[1] + JSON.stringify(sortJsonKeys(value)) + assignment[3];
+    } catch {
+        // Unknown formats, malformed data or executable tails are compared verbatim.
+        return content;
+    }
 }
 
 /**
@@ -248,11 +290,9 @@ function normalizeArtifactContent(content, relativePath = '') {
  * The search resources filename contains a build timestamp, while its contents
  * still point to the content-addressed index and registry files.
  * @param {string} file - Relative artifact path.
- * @returns {string | null} Stable relative artifact path, or null for ignored dynamic chunks.
+ * @returns {string} Stable relative artifact path, including runtime chunks.
  */
 function canonicalArtifactPath(file) {
-    if (DYNAMIC_BUNDLE_PATH.test(file)) return null;
-
     return normalizeBuildSpecificValues(file);
 }
 
@@ -610,21 +650,10 @@ function compareArtifacts(expectedDir, actualDir) {
         const expectedPath = path.join(expectedDir, expectedFiles.get(file));
         const actualPath = path.join(actualDir, actualFiles.get(file));
         if (!file.endsWith('.html')) {
-            // CLI snapshot fixtures deliberately exclude generated client bundles.
-            // Search index and registry ordering is also nondeterministic because
-            // source pages are processed concurrently. Their presence and links
-            // remain checked, while HTML, DOM, and screenshots carry the useful
-            // semantic regression signal.
-            if (
-                file.startsWith('_bundle/') ||
-                /^_search\/.*\/hash-(?:index|registry)\.js$/.test(file)
-            ) {
-                continue;
-            }
-            const expectedHash = fileHash(expectedPath, file);
-            const actualHash = fileHash(actualPath, file);
+            const expectedHash = fileHash(expectedPath, expectedFiles.get(file));
+            const actualHash = fileHash(actualPath, actualFiles.get(file));
             if (expectedHash !== actualHash) {
-                const diff = READABLE_DIFF_PATH.test(file)
+                const diff = READABLE_DIFF_PATH.test(expectedFiles.get(file))
                     ? compareTextFile(expectedPath, actualPath, file)
                     : [];
                 contentDiffs.push({file, expectedHash, actualHash, diff});
@@ -788,6 +817,7 @@ module.exports = {
     normalizeGeneratedJson,
     sortJsonKeys,
     normalizeArtifactContent,
+    normalizeSearchArtifact,
     normalizeHtml,
     contextualDiff,
     compareDiplodocState,

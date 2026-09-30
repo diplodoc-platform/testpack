@@ -80,7 +80,7 @@ test.describe('Downstream Check', () => {
                 'artifacts/candidate-standalone-package-targets.json',
             );
             expect(DEEP_VERIFICATION_WORKFLOW).toContain(
-                '--baseline ../artifacts/base-standalone-package-targets.json',
+                'node tools/testpack/scripts/compare-verification.js',
             );
         });
 
@@ -96,9 +96,7 @@ test.describe('Downstream Check', () => {
             expect(DEEP_VERIFICATION_WORKFLOW).toMatch(
                 /- name: Run candidate browser and screenshot regression[\s\S]*?id: browser[\s\S]*?continue-on-error: true/,
             );
-            expect(DEEP_VERIFICATION_WORKFLOW).toMatch(
-                /steps\.browser\.outcome == 'failure'[\s\S]*?steps\.downstream\.outcome == 'failure'[\s\S]*?steps\.markdown\.outcome == 'failure'/,
-            );
+            expect(DEEP_VERIFICATION_WORKFLOW).toMatch(/steps\.browser\.outcome == 'failure'/);
             expect(DEEP_VERIFICATION_WORKFLOW).toContain('--trace retain-on-failure');
         });
 
@@ -108,7 +106,7 @@ test.describe('Downstream Check', () => {
             );
             expect(DEEP_VERIFICATION_WORKFLOW).toContain('--output artifacts/base-downstream/');
             expect(DEEP_VERIFICATION_WORKFLOW).toContain(
-                '--baseline artifacts/base-downstream/downstream-result.json',
+                'artifact-ids: ${{ needs.baseline.outputs.artifact-id }}',
             );
         });
     });
