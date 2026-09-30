@@ -72,6 +72,18 @@ test.describe('Downstream Check', () => {
     });
 
     test.describe('deep verification workflow', () => {
+        test('should retain both standalone export reports for baseline comparison', () => {
+            expect(DEEP_VERIFICATION_WORKFLOW).toContain(
+                'artifacts/base-standalone-package-targets.json',
+            );
+            expect(DEEP_VERIFICATION_WORKFLOW).toContain(
+                'artifacts/candidate-standalone-package-targets.json',
+            );
+            expect(DEEP_VERIFICATION_WORKFLOW).toContain(
+                '--baseline ../artifacts/base-standalone-package-targets.json',
+            );
+        });
+
         test('should expose hoisted infra config to Playwright', () => {
             expect(DEEP_VERIFICATION_WORKFLOW).toContain('ln -sfn \\');
             expect(DEEP_VERIFICATION_WORKFLOW).toContain('"$PWD/node_modules/@diplodoc/infra"');
