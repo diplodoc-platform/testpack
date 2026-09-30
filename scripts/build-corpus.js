@@ -94,12 +94,28 @@ function copyDir(src, dest) {
 }
 
 /**
- * Recursively remove a directory.
- * @param {string} dir - Directory to remove.
- * @returns {void}
+ * Require a fresh destination with no symlink ancestors.
+ * @param {string} dir - Requested output directory.
+ * @returns {string} Absolute destination.
  */
-function rmrf(dir) {
-    fs.rmSync(dir, {recursive: true, force: true});
+function validateOutputDirectory(dir) {
+    const destination = path.resolve(dir);
+    // Never delete or overwrite a caller-owned directory (including empty ones,
+    // roots, checkouts and dangling symlinks). Reserve a fresh destination first.
+    for (let current = destination; ; current = path.dirname(current)) {
+        try {
+            const stat = fs.lstatSync(current);
+            if (current === destination || stat.isSymbolicLink()) {
+                throw new Error(
+                    `Corpus output must be a fresh directory without symlinks: ${destination}`,
+                );
+            }
+        } catch (error) {
+            if (error.code !== 'ENOENT') throw error;
+        }
+        if (current === path.dirname(current)) break;
+    }
+    return destination;
 }
 
 /**
@@ -134,9 +150,9 @@ function writeMetadata(outputDir, ref, sha, format) {
  * @returns {void}
  */
 function buildCorpus(ref, outputDir, format = 'html') {
+    const destination = validateOutputDirectory(outputDir);
     const sha = resolveSha(ref);
     const outputFormat = normalizeFormat(format);
-    const destination = path.resolve(outputDir);
     const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'diplodoc-corpus-'));
     const worktree = path.join(tempRoot, 'worktree');
     try {
@@ -153,9 +169,12 @@ function buildCorpus(ref, outputDir, format = 'html') {
             stdio: 'inherit',
         });
 
-        rmrf(destination);
         const docsOutput = path.join(worktree, 'docs', 'output');
-        if (fs.existsSync(docsOutput)) {
+        if (fs.existsSync(docsOutput) && fs.statSync(docsOutput).isDirectory()) {
+            // mkdir without recursive/overwrite semantics also closes the race
+            // with another process creating the destination during the build.
+            fs.mkdirSync(path.dirname(destination), {recursive: true});
+            fs.mkdirSync(destination);
             copyDir(docsOutput, path.join(destination, 'output'));
         } else {
             throw new Error(`Corpus build produced no docs/output for ${sha}`);
@@ -196,7 +215,7 @@ module.exports = {
     resolveSha,
     normalizeFormat,
     copyDir,
-    rmrf,
+    validateOutputDirectory,
     writeMetadata,
     buildCorpus,
 };

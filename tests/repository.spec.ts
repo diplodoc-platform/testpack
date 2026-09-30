@@ -4,3 +4,4 @@
 import '../src/tests/package-types';
 import '../src/tests/golden-files';
 import '../src/tests/downstream-check';
+import '../src/tests/security';
