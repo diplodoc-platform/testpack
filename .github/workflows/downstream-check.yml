@@ -120,6 +120,7 @@ jobs:
           fi
           node <<'NODE'
           const fs = require('node:fs');
+          const {execFileSync} = require('node:child_process');
           const check = require('./tools/testpack/scripts/downstream-check.js');
           const repositoryName = process.env.REPOSITORY_NAME;
           if (!check.isSupportedPackage(repositoryName)) {
@@ -134,9 +135,11 @@ jobs:
               );
           }
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `path=${packagePath}\nname=${manifest.name}\n`);
+          const baseSha = execFileSync('git', ['-C', `metapackage/${packagePath}`, 'rev-parse', 'HEAD'], {encoding: 'utf8'}).trim();
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `base-sha=${baseSha}\n`);
           fs.appendFileSync(
               process.env.GITHUB_STEP_SUMMARY,
-              `Candidate repository: \`${repositoryName}\`\n\nCandidate package: \`${manifest.name}\`\n\nSubmodule: \`${packagePath}\`\n\n`,
+              `Candidate repository: \`${repositoryName}\`\n\nCandidate package: \`${manifest.name}\`\n\nSubmodule: \`${packagePath}\`\n\nStandalone baseline SHA: \`${baseSha}\`\n\n`,
           );
           NODE
 
@@ -157,8 +160,30 @@ jobs:
           npm test --if-present
         working-directory: candidate-package
 
-      - name: Verify standalone package exports
-        run: node ../tools/testpack/scripts/check-package-types.js --package-dir .
+      - name: Checkout standalone baseline at metapackage SHA
+        uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/${{ inputs.package }}
+          ref: ${{ steps.package.outputs.base-sha }}
+          path: baseline-package
+          persist-credentials: false
+
+      - name: Build standalone baseline and record export state
+        run: |
+          npm ci --ignore-scripts
+          npm run build --if-present
+          node ../tools/testpack/scripts/check-package-types.js \
+            --package-dir . \
+            --output ../artifacts/base-standalone-package-targets.json \
+            --allow-invalid
+        working-directory: baseline-package
+
+      - name: Verify standalone package export regressions
+        run: |
+          node ../tools/testpack/scripts/check-package-types.js \
+            --package-dir . \
+            --baseline ../artifacts/base-standalone-package-targets.json \
+            --output ../artifacts/candidate-standalone-package-targets.json
         working-directory: candidate-package
 
       - name: Resolve base metapackage lock and install

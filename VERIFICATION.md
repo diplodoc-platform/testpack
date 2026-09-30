@@ -93,6 +93,15 @@ SHA, and then:
 The workflow does not install dependencies independently inside consumer
 directories, so it tests the actual metapackage dependency graph.
 
+Before workspace verification, the candidate is checked with its own lockfile.
+The package revision registered in the base metapackage is also installed and
+built in a separate standalone checkout. Both export reports are retained as
+artifacts: `base-standalone-package-targets.json` and
+`candidate-standalone-package-targets.json`. Existing missing targets remain
+visible, but only newly missing targets fail this standalone export gate. A
+baseline installation or build failure is not ignored. The baseline SHA is
+recorded in the job summary, and no package-specific export allowlist is used.
+
 The `profile` workflow input only selects the cost of this GitHub verification.
 It is not a package API and it does not represent or launch the internal Arcadia
 document check. That check remains owned by the CLI repository and its existing
