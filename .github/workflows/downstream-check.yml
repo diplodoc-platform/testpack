@@ -350,6 +350,8 @@ jobs:
             artifacts/expected/
             artifacts/actual/
             artifacts/base-package-targets.json
+            artifacts/base-standalone-package-targets.json
+            artifacts/candidate-standalone-package-targets.json
             artifacts/base-metapackage-lock.json
             artifacts/candidate-metapackage-lock.json
             artifacts/playwright-output/
