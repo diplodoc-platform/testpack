@@ -1,207 +1,216 @@
 name: Golden File Comparison
-
-on:
+'on':
   pull_request:
     paths:
-      - 'package.json'
-      - 'package-lock.json'
-
+      - package.json
+      - package-lock.json
 permissions:
   contents: read
-
 jobs:
-  golden-file-comparison:
-    name: Golden File Comparison
+  scope:
+    name: Classify dependency-only scope
     runs-on: ubuntu-24.04
-    env:
-      CI: 'true'
-      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
+    timeout-minutes: 10
+    outputs:
+      run-comparison: ${{ steps.scope.outputs.run-comparison }}
     steps:
-      - name: Checkout (base + head)
+      - name: Checkout candidate data
         uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-
+          persist-credentials: false
+          path: package
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Checkout trusted scope tools
+        uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/testpack
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: tools/testpack
+          persist-credentials: false
       - name: Classify dependency-only PR scope
         id: scope
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          MANIFEST_DEPENDENCY_CHANGE=$(node <<'NODE'
-          const {execFileSync} = require('node:child_process');
-          const sections = [
-              'dependencies',
-              'devDependencies',
-              'peerDependencies',
-              'optionalDependencies',
-              'overrides',
-          ];
-          const readManifest = (ref) =>
-              JSON.parse(execFileSync('git', ['show', `${ref}:package.json`], {encoding: 'utf8'}));
-          const selectDependencies = (manifest) =>
-              Object.fromEntries(sections.map((section) => [section, manifest[section] || {}]));
-          const before = selectDependencies(readManifest(process.env.BASE_SHA));
-          const after = selectDependencies(readManifest(process.env.HEAD_SHA));
-          process.stdout.write(String(JSON.stringify(before) !== JSON.stringify(after)));
-          NODE
-          )
-
-          LOCKFILE_CHANGE=false
-          if ! git diff --quiet "${BASE_SHA}" "${HEAD_SHA}" -- package-lock.json; then
-            LOCKFILE_CHANGE=true
-          fi
-
-          NON_DEPENDENCY_FILES=$(git diff --name-only "${BASE_SHA}" "${HEAD_SHA}" -- \
-            ':(exclude)package.json' ':(exclude)package-lock.json')
-          DEPENDENCY_ONLY=false
-          if [ -z "${NON_DEPENDENCY_FILES}" ]; then
-            DEPENDENCY_ONLY=true
-          fi
-
-          HAS_DEPENDENCY_CHANGES=false
-          if [ "${MANIFEST_DEPENDENCY_CHANGE}" = true ] || [ "${LOCKFILE_CHANGE}" = true ]; then
-            HAS_DEPENDENCY_CHANGES=true
-          fi
-
-          RUN_COMPARISON=false
-          if [ "${DEPENDENCY_ONLY}" = true ] && [ "${HAS_DEPENDENCY_CHANGES}" = true ]; then
-            RUN_COMPARISON=true
-          fi
-
-          echo "dependency-only=${DEPENDENCY_ONLY}" >> "$GITHUB_OUTPUT"
-          echo "has-dependency-changes=${HAS_DEPENDENCY_CHANGES}" >> "$GITHUB_OUTPUT"
-          echo "run-comparison=${RUN_COMPARISON}" >> "$GITHUB_OUTPUT"
-
+        run: node ../tools/testpack/scripts/golden-scope.js
+        working-directory: package
       - name: Explain skipped comparison
         if: steps.scope.outputs.run-comparison != 'true'
-        run: |
+        run: >
           echo "Golden comparison is a blocking gate for dependency-only PRs." >> "$GITHUB_STEP_SUMMARY"
-          echo "This PR also changes feature, fixture, test, documentation, or workflow files; those changes remain covered by normal CI and human review." >> "$GITHUB_STEP_SUMMARY"
 
+          echo "This PR also changes feature, fixture, test, documentation, or workflow files; those changes
+          remain covered by normal CI and human review." >> "$GITHUB_STEP_SUMMARY"
+  baseline:
+    name: Build isolated baseline
+    needs: scope
+    if: needs.scope.outputs.run-comparison == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
+    outputs:
+      artifact-id: ${{ steps.evidence.outputs.artifact-id }}
+    steps:
+      - name: Checkout trusted base tools
+        uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/testpack
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: tools/testpack
+          persist-credentials: false
       - name: Setup Node.js
-        if: steps.scope.outputs.run-comparison == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-          cache: npm
+      - name: Checkout baseline package
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: package
+      - name: Build isolated baseline HTML and Markdown
+        env:
+          CORPUS_SHA: ${{ github.event.pull_request.base.sha }}
+        run: >
+          node ../tools/testpack/scripts/build-corpus.js --ref "$CORPUS_SHA" --output
+          "$GITHUB_WORKSPACE/artifacts/expected/html" --format html
 
-      - name: Install dependencies
-        if: steps.scope.outputs.run-comparison == 'true'
-        run: npm ci
+          node ../tools/testpack/scripts/build-corpus.js --ref "$CORPUS_SHA" --output
+          "$GITHUB_WORKSPACE/artifacts/expected/md" --format md
+        working-directory: package
+      - name: Upload isolated baseline evidence
+        id: evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-baseline-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 30
+  candidate:
+    name: Build isolated candidate
+    needs: scope
+    if: needs.scope.outputs.run-comparison == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.cache/ms-playwright
+    outputs:
+      artifact-id: ${{ steps.evidence.outputs.artifact-id }}
+    steps:
+      - name: Checkout trusted base tools
+        uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/testpack
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: tools/testpack
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Checkout candidate package
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          path: package
+      - name: Build isolated candidate HTML and Markdown
+        env:
+          CORPUS_SHA: ${{ github.event.pull_request.head.sha }}
+        run: >
+          node ../tools/testpack/scripts/build-corpus.js --ref "$CORPUS_SHA" --output
+          "$GITHUB_WORKSPACE/artifacts/actual/html" --format html
 
-      - name: Install Playwright browsers
-        if: steps.scope.outputs.run-comparison == 'true'
-        run: npx playwright install --with-deps chromium
-
-      - name: Resolve base and head SHAs
-        if: steps.scope.outputs.run-comparison == 'true'
-        id: shas
+          node ../tools/testpack/scripts/build-corpus.js --ref "$CORPUS_SHA" --output
+          "$GITHUB_WORKSPACE/artifacts/actual/md" --format md
+        working-directory: package
+      - name: Install candidate browser dependencies
         run: |
-          echo "base-sha=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
-          echo "head-sha=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
-
-      - name: Build HTML corpus (base SHA — expected)
-        if: steps.scope.outputs.run-comparison == 'true'
-        run: |
-          node scripts/build-corpus.js \
-            --ref "${{ steps.shas.outputs.base-sha }}" \
-            --output artifacts/expected/html \
-            --format html
-
-      - name: Build HTML corpus (head SHA — actual)
-        if: steps.scope.outputs.run-comparison == 'true'
-        run: |
-          node scripts/build-corpus.js \
-            --ref "${{ steps.shas.outputs.head-sha }}" \
-            --output artifacts/actual/html \
-            --format html
-
-      - name: Build Markdown corpus (base SHA — expected)
-        if: steps.scope.outputs.run-comparison == 'true'
-        run: |
-          node scripts/build-corpus.js \
-            --ref "${{ steps.shas.outputs.base-sha }}" \
-            --output artifacts/expected/md \
-            --format md
-
-      - name: Build Markdown corpus (head SHA — actual)
-        if: steps.scope.outputs.run-comparison == 'true'
-        run: |
-          node scripts/build-corpus.js \
-            --ref "${{ steps.shas.outputs.head-sha }}" \
-            --output artifacts/actual/md \
-            --format md
-
-      - name: Compare HTML artifacts (file tree + normalized HTML + asset links)
-        if: steps.scope.outputs.run-comparison == 'true'
-        id: compare-html
-        continue-on-error: true
-        run: |
-          node scripts/compare-artifacts.js \
-            --expected artifacts/expected/html/output/ \
-            --actual artifacts/actual/html/output/ \
-            --report artifacts/html-diff.md
-
-      - name: Compare Markdown artifacts
-        if: steps.scope.outputs.run-comparison == 'true'
-        id: compare-markdown
-        continue-on-error: true
-        run: |
-          node scripts/compare-artifacts.js \
-            --expected artifacts/expected/md/output/ \
-            --actual artifacts/actual/md/output/ \
-            --report artifacts/markdown-diff.md
-
-      - name: Compare SVG DOM (id, href, viewBox, masks, gradients)
-        if: steps.scope.outputs.run-comparison == 'true'
-        id: compare-svg
-        continue-on-error: true
-        run: |
-          node scripts/compare-svg-dom.js \
-            --expected artifacts/expected/html/output/ \
-            --actual artifacts/actual/html/output/ \
-            --report artifacts/svg-diff.md
-
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium
+        working-directory: package
       - name: Capture screenshots (visual regression)
-        if: steps.scope.outputs.run-comparison == 'true'
         id: screenshots
         continue-on-error: true
         env:
-          PLAYWRIGHT_HTML_REPORT: artifacts/playwright-report
-        run: |
-          npx playwright test --grep @screenshot --update-snapshots=none \
-            --output artifacts/playwright-output \
-            --trace on
-
-      - name: Upload artifacts (actual + expected + diff + trace)
-        if: always() && steps.scope.outputs.run-comparison == 'true'
+          PLAYWRIGHT_HTML_REPORT: ${{ github.workspace }}/artifacts/playwright-report
+        run: >-
+          npx playwright test --grep @screenshot --update-snapshots=none --output
+          "$GITHUB_WORKSPACE/artifacts/playwright-output" --trace on
+        working-directory: package
+      - name: Upload isolated candidate evidence
+        id: evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: golden-file-artifacts
-          path: |
-            artifacts/expected/
-            artifacts/actual/
-            artifacts/html-diff.md
-            artifacts/markdown-diff.md
-            artifacts/svg-diff.md
-            artifacts/playwright-output/
-            artifacts/playwright-report/
+          name: golden-candidate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/
+          if-no-files-found: error
           retention-days: 30
-
-      - name: Write comparison reports to job summary
-        if: always() && steps.scope.outputs.run-comparison == 'true'
-        run: |
-          if [ -f artifacts/html-diff.md ]; then
-            cat artifacts/html-diff.md >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [ -f artifacts/markdown-diff.md ]; then
-            cat artifacts/markdown-diff.md >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [ -f artifacts/svg-diff.md ]; then
-            cat artifacts/svg-diff.md >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Fail if differences detected
-        if: steps.scope.outputs.run-comparison == 'true' && (steps.compare-html.outcome == 'failure' || steps.compare-markdown.outcome == 'failure' || steps.compare-svg.outcome == 'failure' || steps.screenshots.outcome == 'failure')
+      - name: Fail for screenshot regressions
+        if: steps.screenshots.outcome == 'failure'
         run: exit 1
+  golden-file-comparison:
+    name: Golden File Comparison
+    needs:
+      - scope
+      - baseline
+      - candidate
+    if: always() && needs.scope.outputs.run-comparison == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      BASELINE_RESULT: ${{ needs.baseline.result }}
+      CANDIDATE_RESULT: ${{ needs.candidate.result }}
+    steps:
+      - name: Require complete isolated builds
+        run: '[[ "$BASELINE_RESULT" == success && "$CANDIDATE_RESULT" == success ]] || exit 1'
+      - name: Checkout trusted base tools
+        uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/testpack
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: tools/testpack
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Download immutable baseline evidence
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.baseline.outputs.artifact-id }}
+          path: baseline
+      - name: Download immutable candidate evidence
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.candidate.outputs.artifact-id }}
+          path: candidate
+      - name: Compare HTML, Markdown and SVG without executing package code
+        run: >-
+          node tools/testpack/scripts/compare-corpus.js --baseline baseline/expected --candidate
+          candidate/actual --output reports
+      - name: Upload trusted corpus differences
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-comparison-${{ github.run_id }}-${{ github.run_attempt }}
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Write trusted reports to summary
+        if: always()
+        run: >-
+          for report in reports/*.md; do if [ -f "$report" ]; then cat "$report" >> "$GITHUB_STEP_SUMMARY";
+          fi; done

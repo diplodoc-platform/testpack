@@ -174,7 +174,7 @@ test.describe('Golden File Comparison', () => {
             );
         });
 
-        test('should ignore dynamic client chunks like CLI snapshot fixtures', () => {
+        test('should retain dynamic client chunks and their HTML references', () => {
             const paths = [
                 '_bundle/app-8f2e8c692ec7a302.js',
                 '_bundle/572-d105b8fc819aff93.rtl.css',
@@ -182,12 +182,13 @@ test.describe('Golden File Comparison', () => {
 
             expect([...compareArtifacts.indexArtifactPaths(paths).keys()]).toEqual([
                 '_bundle/app-js',
+                '_bundle/572-hash.rtl.css',
             ]);
             expect(
                 compareArtifacts.normalizeBuildSpecificValues(
                     '<link href="_bundle/572-d105b8fc819aff93.rtl.css">',
                 ),
-            ).toBe('');
+            ).toBe('<link href="_bundle/572-hash.rtl.css">');
         });
 
         test('should normalize generated UUIDs and inline code ids', () => {
@@ -463,19 +464,19 @@ test.describe('Golden File Comparison', () => {
                 );
                 fs.writeFileSync(
                     path.join(expectedSearchDir, '111111111111-index.js'),
-                    'nondeterministic base index ordering',
+                    'self.index={"version":"2.3.9","invertedIndex":[["b",{"_index":0}],["a",{"_index":1}]],"fieldVectors":[["doc",[0,1,1,2]]]};',
                 );
                 fs.writeFileSync(
                     path.join(actualSearchDir, '222222222222-index.js'),
-                    'nondeterministic candidate index ordering',
+                    'self.index={"version":"2.3.9","invertedIndex":[["a",{"_index":0}],["b",{"_index":1}]],"fieldVectors":[["doc",[0,2,1,1]]]};',
                 );
                 fs.writeFileSync(
                     path.join(expectedSearchDir, '333333333333-registry.js'),
-                    'nondeterministic base registry ordering',
+                    'self.registry={"b":{"title":"B"},"a":{"title":"A"}};',
                 );
                 fs.writeFileSync(
                     path.join(actualSearchDir, '444444444444-registry.js'),
-                    'nondeterministic candidate registry ordering',
+                    'self.registry={"a":{"title":"A"},"b":{"title":"B"}};',
                 );
                 fs.writeFileSync(
                     path.join(expectedDir, 'index.html'),
@@ -495,11 +496,15 @@ test.describe('Golden File Comparison', () => {
                 );
                 fs.writeFileSync(
                     path.join(expectedBundleDir, 'app-8f2e8c692ec7a302.js'),
-                    'old generated bundle',
+                    'same generated bundle',
                 );
                 fs.writeFileSync(
                     path.join(actualBundleDir, 'app-e999bf52a913e329.js'),
-                    'new generated bundle',
+                    'same generated bundle',
+                );
+                fs.writeFileSync(
+                    path.join(expectedBundleDir, '572-aaaaaaaaaaaaaaaa.rtl.css'),
+                    'dynamic chunk',
                 );
                 fs.writeFileSync(
                     path.join(actualBundleDir, '572-d105b8fc819aff93.rtl.css'),
@@ -532,12 +537,18 @@ test.describe('Golden File Comparison', () => {
         });
 
         test('should fail closed when either corpus directory is missing', () => {
-            expect(() =>
-                compareArtifacts.compareArtifacts('/missing/expected', DOCS_OUTPUT),
-            ).toThrow(/Expected artifact directory does not exist/);
-            expect(() => compareArtifacts.compareArtifacts(DOCS_OUTPUT, '/missing/actual')).toThrow(
-                /Actual artifact directory does not exist/,
-            );
+            const valid = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-missing-dir-'));
+            const missing = path.join(valid, 'missing');
+            try {
+                expect(() => compareArtifacts.compareArtifacts(missing, valid)).toThrow(
+                    /Expected artifact directory does not exist/,
+                );
+                expect(() => compareArtifacts.compareArtifacts(valid, missing)).toThrow(
+                    /Actual artifact directory does not exist/,
+                );
+            } finally {
+                fs.rmSync(valid, {recursive: true, force: true});
+            }
         });
 
         test('should detect added files', () => {
@@ -809,12 +820,18 @@ test.describe('Golden File Comparison', () => {
         });
 
         test('should fail closed when either SVG corpus directory is missing', () => {
-            expect(() => compareSvgDom.compareSvgDoms('/missing/expected', DOCS_OUTPUT)).toThrow(
-                /Expected SVG artifact directory does not exist/,
-            );
-            expect(() => compareSvgDom.compareSvgDoms(DOCS_OUTPUT, '/missing/actual')).toThrow(
-                /Actual SVG artifact directory does not exist/,
-            );
+            const valid = fs.mkdtempSync(path.join(os.tmpdir(), 'svg-missing-dir-'));
+            const missing = path.join(valid, 'missing');
+            try {
+                expect(() => compareSvgDom.compareSvgDoms(missing, valid)).toThrow(
+                    /Expected SVG artifact directory does not exist/,
+                );
+                expect(() => compareSvgDom.compareSvgDoms(valid, missing)).toThrow(
+                    /Actual SVG artifact directory does not exist/,
+                );
+            } finally {
+                fs.rmSync(valid, {recursive: true, force: true});
+            }
         });
     });
 
@@ -880,7 +897,7 @@ test.describe('Golden File Comparison', () => {
             expect(typeof buildCorpus.resolveSha).toBe('function');
             expect(typeof buildCorpus.normalizeFormat).toBe('function');
             expect(typeof buildCorpus.copyDir).toBe('function');
-            expect(typeof buildCorpus.rmrf).toBe('function');
+            expect(typeof buildCorpus.validateOutputDirectory).toBe('function');
             expect(typeof buildCorpus.writeMetadata).toBe('function');
             expect(typeof buildCorpus.buildCorpus).toBe('function');
         });

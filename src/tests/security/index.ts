@@ -1,0 +1,346 @@
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+import {execFileSync} from 'child_process';
+import {expect, test} from '@playwright/test';
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+// Use the YAML parser provided by the installed infra tooling.
+const yaml = require(
+    require.resolve('js-yaml', {
+        paths: [path.dirname(require.resolve('@diplodoc/infra/prettier-config'))],
+    }),
+);
+
+const compare = require('../../../scripts/compare-artifacts');
+const verification = require('../../../scripts/compare-verification');
+const corpus = require('../../../scripts/build-corpus');
+const {compareCorpus} = require('../../../scripts/compare-corpus');
+const {validateInputs, resolveMetadata} = require('../../../scripts/verification-setup');
+const {classifyScope} = require('../../../scripts/golden-scope');
+/* eslint-enable @typescript-eslint/no-require-imports */
+
+test.describe('Verification security boundaries', () => {
+    test('workflow input helper rejects invalid data before candidate checkout', () => {
+        const valid = {
+            REPOSITORY_NAME: 'tabs-extension',
+            EXPECTED_SHA: 'a'.repeat(40),
+            PROFILE: 'document-transform',
+            PR_NUMBER: '29',
+        };
+        expect(() => validateInputs(valid)).not.toThrow();
+        for (const invalid of [
+            {EXPECTED_SHA: '$(unreviewed)'},
+            {REPOSITORY_NAME: '../cli'},
+            {REPOSITORY_NAME: 'unsupported'},
+            {PROFILE: 'standard-ci'},
+            {PR_NUMBER: '0'},
+        ])
+            expect(() => validateInputs({...valid, ...invalid})).toThrow();
+    });
+
+    test('scope helper distinguishes dependency-only changes, feature PRs and Git errors', () => {
+        const base = 'a'.repeat(40);
+        const head = 'b'.repeat(40);
+        const git = (_command: string, args: string[]) => {
+            if (args[0] === 'show')
+                return JSON.stringify({
+                    dependencies: {fixture: args[1].startsWith(base) ? '1' : '2'},
+                });
+            return '';
+        };
+        expect(classifyScope(base, head, git)).toEqual({
+            dependencyOnly: true,
+            hasDependencyChanges: true,
+            runComparison: true,
+        });
+        expect(
+            classifyScope(base, head, (command: string, args: string[]) =>
+                args[1] === '--name-only' ? 'src/index.ts\n' : git(command, args),
+            ),
+        ).toEqual({dependencyOnly: false, hasDependencyChanges: true, runComparison: false});
+        expect(() =>
+            classifyScope(base, head, (command: string, args: string[]) => {
+                if (args[1] === '--quiet')
+                    throw Object.assign(new Error('Git failed'), {status: 128});
+                return git(command, args);
+            }),
+        ).toThrow('Git failed');
+        expect(() => classifyScope('invalid', head, git)).toThrow('Invalid comparison SHA');
+    });
+
+    test('metadata helper resolves exact revisions and rejects wrong candidate identity', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-metadata-'));
+        try {
+            const initialize = (dir: string) => {
+                fs.mkdirSync(dir, {recursive: true});
+                const git = (args: string[]) =>
+                    execFileSync('git', ['-C', dir, ...args], {encoding: 'utf8'}).trim();
+                git(['init', '-q']);
+                git(['config', 'user.name', 'Fixture']);
+                git(['config', 'user.email', 'fixture@example.invalid']);
+                git(['commit', '-q', '--allow-empty', '-m', 'fixture']);
+                return git(['rev-parse', 'HEAD']);
+            };
+            const candidate = path.join(root, 'candidate');
+            const metapackage = path.join(root, 'metapackage');
+            const sha = initialize(candidate);
+            const metapackageSha = initialize(metapackage);
+            const baseSha = initialize(path.join(metapackage, 'extensions/tabs'));
+            const manifest = path.join(candidate, 'package.json');
+            fs.writeFileSync(manifest, JSON.stringify({name: '@diplodoc/tabs-extension'}));
+            const env = {
+                REPOSITORY_NAME: 'tabs-extension',
+                EXPECTED_SHA: sha,
+                PROFILE: 'document-transform',
+            };
+            expect(resolveMetadata(env, candidate, metapackage)).toEqual({
+                path: 'extensions/tabs',
+                name: '@diplodoc/tabs-extension',
+                baseSha,
+                metapackageSha,
+            });
+            expect(() =>
+                resolveMetadata({...env, EXPECTED_SHA: 'a'.repeat(40)}, candidate, metapackage),
+            ).toThrow('Candidate checkout does not match expected SHA');
+            fs.writeFileSync(manifest, JSON.stringify({name: '@diplodoc/cli'}));
+            expect(() => resolveMetadata(env, candidate, metapackage)).toThrow(
+                'Unexpected package name',
+            );
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true});
+        }
+    });
+
+    test('workflow JavaScript stays in trusted helper files, not YAML heredocs', () => {
+        const downstream = fs.readFileSync(
+            path.join(__dirname, '../../../.github/workflows/downstream-check.yml'),
+            'utf8',
+        );
+        const golden = fs.readFileSync(
+            path.join(__dirname, '../../../.github/workflows/golden-file-comparison.yml'),
+            'utf8',
+        );
+        expect(downstream).toContain('node tools/testpack/scripts/verification-setup.js metadata');
+        expect(golden).toContain('node ../tools/testpack/scripts/golden-scope.js');
+        expect(downstream + golden).not.toMatch(/node\s+(?:<<|-e)/);
+    });
+    test('complete isolated evidence passes while a new Markdown failure or missing report blocks', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-comparison-evidence-'));
+        const baseline = path.join(root, 'baseline');
+        const candidate = path.join(root, 'candidate');
+        try {
+            for (const [dir, role, kind] of [
+                [baseline, 'base', 'expected'],
+                [candidate, 'candidate', 'actual'],
+            ]) {
+                fs.mkdirSync(path.join(dir, `${role}-downstream`), {recursive: true});
+                fs.writeFileSync(
+                    path.join(dir, `${role}-downstream/downstream-result.json`),
+                    JSON.stringify({package: 'cut-extension', consumers: []}),
+                );
+                for (const scope of ['', 'standalone-']) {
+                    fs.writeFileSync(
+                        path.join(dir, `${role}-${scope}package-targets.json`),
+                        JSON.stringify({ok: true, checked: ['./index.js'], missing: []}),
+                    );
+                }
+                for (const format of ['html', 'md'])
+                    fs.mkdirSync(path.join(dir, kind, format, 'output'), {recursive: true});
+                fs.writeFileSync(path.join(dir, kind, 'html/output/index.html'), '<p>same</p>');
+                fs.writeFileSync(path.join(dir, kind, 'md/output/index.md'), 'same');
+            }
+            expect(
+                verification.compareVerification('cut-extension', baseline, candidate).passed,
+            ).toBe(true);
+            fs.writeFileSync(path.join(candidate, 'actual/md/output/index.md'), 'changed');
+            expect(
+                verification.compareVerification('cut-extension', baseline, candidate).passed,
+            ).toBe(false);
+            fs.unlinkSync(path.join(candidate, 'candidate-standalone-package-targets.json'));
+            expect(() =>
+                verification.compareVerification('cut-extension', baseline, candidate),
+            ).toThrow();
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true});
+        }
+    });
+
+    test('golden comparison reads only base tooling and immutable artifacts on its own runner', () => {
+        const workflow = yaml.load(
+            fs.readFileSync(
+                path.join(__dirname, '../../../.github/workflows/golden-file-comparison.yml'),
+                'utf8',
+            ),
+        );
+        expect(workflow.jobs.baseline.needs).toBe('scope');
+        expect(workflow.jobs.candidate.needs).toBe('scope');
+        const steps = workflow.jobs['golden-file-comparison'].steps;
+        const checkouts = steps.filter((step: {uses?: string}) =>
+            step.uses?.startsWith('actions/checkout@'),
+        );
+        expect(checkouts).toHaveLength(1);
+        expect(checkouts[0].with.ref).toBe('${{ github.event.pull_request.base.sha }}');
+        expect(
+            steps.find(
+                (step: {name: string}) => step.name === 'Download immutable baseline evidence',
+            ).with['artifact-ids'],
+        ).toBe('${{ needs.baseline.outputs.artifact-id }}');
+        expect(steps.map((step: {run?: string}) => step.run || '').join('\n')).not.toMatch(
+            /npm (?:ci|test|run)/,
+        );
+    });
+
+    test('normalizes search insertion order but preserves content, weights and executable tails', () => {
+        const file = '_search/ru/hash-index.js';
+        const before =
+            'self.index={"version":"2.3.9","invertedIndex":[["b",{"_index":0}],["a",{"_index":1}]],"fieldVectors":[["doc",[0,1,1,2]]]};';
+        const after =
+            'self.index={"version":"2.3.9","invertedIndex":[["a",{"_index":0}],["b",{"_index":1}]],"fieldVectors":[["doc",[0,2,1,1]]]};';
+        expect(compare.normalizeSearchArtifact(before, file)).toBe(
+            compare.normalizeSearchArtifact(after, file),
+        );
+        expect(compare.normalizeSearchArtifact(before, file)).not.toBe(
+            compare.normalizeSearchArtifact(after.replace('[0,2,1,1]', '[0,3,1,1]'), file),
+        );
+        const extraCode = after + 'self.unreviewed = true;';
+        expect(compare.normalizeSearchArtifact(extraCode, file)).toBe(extraCode);
+        const registry = 'self.registry={"b":"B","a":"A"};';
+        expect(compare.normalizeSearchArtifact(registry, '_search/ru/hash-registry.js')).toBe(
+            'self.registry={"a":"A","b":"B"};',
+        );
+        expect(compare.normalizeSearchArtifact(registry, '_search/ru/hash-registry.js')).not.toBe(
+            compare.normalizeSearchArtifact(
+                registry.replace('"B"', '"changed"'),
+                '_search/ru/hash-registry.js',
+            ),
+        );
+    });
+
+    test('empty HTML and Markdown directories are not valid corpus evidence', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-empty-corpus-'));
+        try {
+            fs.mkdirSync(path.join(root, 'html/output'), {recursive: true});
+            fs.mkdirSync(path.join(root, 'md/output'), {recursive: true});
+            expect(() => compareCorpus(root, root)).toThrow(/Incomplete corpus evidence/);
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true});
+        }
+    });
+
+    test('builds baseline and candidate separately and compares immutable artifacts without package execution', () => {
+        const workflow = yaml.load(
+            fs.readFileSync(
+                path.join(__dirname, '../../../.github/workflows/downstream-check.yml'),
+                'utf8',
+            ),
+        );
+        expect(Object.keys(workflow.jobs)).toEqual([
+            'prepare',
+            'baseline',
+            'candidate',
+            'comparison',
+        ]);
+        expect(workflow.jobs.baseline.needs).toBe('prepare');
+        expect(workflow.jobs.candidate.needs).toBe('prepare');
+        expect(workflow.jobs.comparison.needs).toEqual(['prepare', 'baseline', 'candidate']);
+        const comparisonSteps = workflow.jobs.comparison.steps;
+        expect(
+            comparisonSteps.filter((step: {uses?: string}) =>
+                step.uses?.startsWith('actions/checkout@'),
+            ),
+        ).toHaveLength(1);
+        expect(
+            comparisonSteps.find(
+                (step: {name: string}) => step.name === 'Download immutable baseline artifact',
+            ).with['artifact-ids'],
+        ).toBe('${{ needs.baseline.outputs.artifact-id }}');
+        for (const job of Object.values(workflow.jobs) as {
+            steps: {run?: string; uses?: string; with?: {cache?: string}}[];
+        }[]) {
+            for (const step of job.steps) {
+                expect(step.run || '').not.toMatch(/\$\{\{\s*inputs\./);
+                expect(step.with?.cache).toBeUndefined();
+                if (step.uses) expect(step.uses).toMatch(/@v\d+(?:\.\d+)*$/);
+            }
+        }
+    });
+
+    test('does not turn missing, malformed or skipped evidence into a pass', () => {
+        expect(() => verification.validateExports({ok: true})).toThrow();
+        expect(() =>
+            verification.validateExports({
+                ok: true,
+                checked: ['./index.js'],
+                missing: ['./index.js'],
+            }),
+        ).toThrow();
+        expect(() =>
+            verification.validateConsumers({package: 'components', consumers: []}, 'components'),
+        ).toThrow();
+        expect(() =>
+            verification.validateConsumers(
+                {package: 'cut-extension', error: 'build failed', consumers: []},
+                'cut-extension',
+            ),
+        ).toThrow();
+        expect(
+            verification.compareExports(
+                {ok: false, checked: ['old'], missing: ['old']},
+                {ok: false, checked: ['old', 'new'], missing: ['old', 'new']},
+            ),
+        ).toEqual({newMissing: ['new']});
+    });
+
+    test('preserves script attributes and dynamic chunk identity', () => {
+        const original = '<script defer src="_bundle/572-aaaaaaaaaaaaaaaa.js"></script>';
+        expect(compare.normalizeBuildSpecificValues(original)).toContain('defer');
+        expect(compare.normalizeBuildSpecificValues(original)).not.toBe(
+            compare.normalizeBuildSpecificValues(original.replace(' defer', '')),
+        );
+        expect(compare.normalizeBuildSpecificValues(original)).not.toBe(
+            compare.normalizeBuildSpecificValues(original.replace('572-', '573-')),
+        );
+    });
+
+    for (const asset of [
+        'app-aaaaaaaaaaaaaaaa.js',
+        '572-aaaaaaaaaaaaaaaa.js',
+        '572-aaaaaaaaaaaaaaaa.css',
+    ]) {
+        test(`detects runtime content changes and removal in ${asset}`, () => {
+            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-runtime-'));
+            const baseline = path.join(root, 'base');
+            const candidate = path.join(root, 'candidate');
+            try {
+                for (const dir of [baseline, candidate]) {
+                    fs.mkdirSync(path.join(dir, '_bundle'), {recursive: true});
+                    fs.writeFileSync(path.join(dir, '_bundle', asset), 'original runtime');
+                }
+                expect(compare.compareArtifacts(baseline, candidate).hasDifferences).toBe(false);
+                fs.writeFileSync(path.join(candidate, '_bundle', asset), 'changed runtime');
+                const changed = compare.compareArtifacts(baseline, candidate);
+                expect(changed.hasDifferences).toBe(true);
+                expect(changed.contentDiffs[0].diff.length).toBeGreaterThan(0);
+                fs.unlinkSync(path.join(candidate, '_bundle', asset));
+                expect(
+                    compare.compareArtifacts(baseline, candidate).fileTreeDiff.removed,
+                ).toHaveLength(1);
+            } finally {
+                fs.rmSync(root, {recursive: true, force: true});
+            }
+        });
+    }
+
+    test('refuses existing corpus output before running git or npm and preserves contents', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-safe-output-'));
+        try {
+            fs.writeFileSync(path.join(root, 'user-data'), 'keep');
+            expect(() => corpus.buildCorpus('not-a-git-ref', root)).toThrow(/fresh directory/);
+            expect(() => corpus.validateOutputDirectory(path.parse(root).root)).toThrow();
+            expect(fs.readFileSync(path.join(root, 'user-data'), 'utf8')).toBe('keep');
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true});
+        }
+    });
+});
