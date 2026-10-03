@@ -537,12 +537,18 @@ test.describe('Golden File Comparison', () => {
         });
 
         test('should fail closed when either corpus directory is missing', () => {
-            expect(() =>
-                compareArtifacts.compareArtifacts('/missing/expected', DOCS_OUTPUT),
-            ).toThrow(/Expected artifact directory does not exist/);
-            expect(() => compareArtifacts.compareArtifacts(DOCS_OUTPUT, '/missing/actual')).toThrow(
-                /Actual artifact directory does not exist/,
-            );
+            const valid = fs.mkdtempSync(path.join(os.tmpdir(), 'golden-missing-dir-'));
+            const missing = path.join(valid, 'missing');
+            try {
+                expect(() => compareArtifacts.compareArtifacts(missing, valid)).toThrow(
+                    /Expected artifact directory does not exist/,
+                );
+                expect(() => compareArtifacts.compareArtifacts(valid, missing)).toThrow(
+                    /Actual artifact directory does not exist/,
+                );
+            } finally {
+                fs.rmSync(valid, {recursive: true, force: true});
+            }
         });
 
         test('should detect added files', () => {
@@ -814,12 +820,18 @@ test.describe('Golden File Comparison', () => {
         });
 
         test('should fail closed when either SVG corpus directory is missing', () => {
-            expect(() => compareSvgDom.compareSvgDoms('/missing/expected', DOCS_OUTPUT)).toThrow(
-                /Expected SVG artifact directory does not exist/,
-            );
-            expect(() => compareSvgDom.compareSvgDoms(DOCS_OUTPUT, '/missing/actual')).toThrow(
-                /Actual SVG artifact directory does not exist/,
-            );
+            const valid = fs.mkdtempSync(path.join(os.tmpdir(), 'svg-missing-dir-'));
+            const missing = path.join(valid, 'missing');
+            try {
+                expect(() => compareSvgDom.compareSvgDoms(missing, valid)).toThrow(
+                    /Expected SVG artifact directory does not exist/,
+                );
+                expect(() => compareSvgDom.compareSvgDoms(valid, missing)).toThrow(
+                    /Actual SVG artifact directory does not exist/,
+                );
+            } finally {
+                fs.rmSync(valid, {recursive: true, force: true});
+            }
         });
     });
 
