@@ -153,6 +153,14 @@ internal bridge.
 
 ## Local validation snapshot
 
+Review follow-up (2026-10-03): Action version tags restored and workflow helpers
+extracted. Lint, typecheck, build and normal pre-commit hooks passed. Focused
+repository tests passed 160 cases with 2 existing skips; the full local Chromium
+suite passed 1548 cases with 4 skips, no unexpected failures or flaky tests, and
+no tracked screenshot baseline changes. Actionlint 1.7.12 passed without
+shellcheck after excluding only its unsupported workflow-identity property
+diagnostics. Hosted multi-platform CI and reusable-job pilots remain separate.
+
 Security hardening validation on 2026-09-30: focused repository tooling tests
 passed (156 passed, 2 existing skips), together with typecheck, lint and build.
 Workflow YAML passed actionlint with only the documented `job.workflow_*`
