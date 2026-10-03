@@ -65,7 +65,7 @@ jobs:
           [[ "$WORKFLOW_REPOSITORY" == diplodoc-platform/testpack ]] || { echo 'Unexpected tool repository'; exit 1; }
           [[ "$WORKFLOW_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'Missing immutable workflow SHA'; exit 1; }
       - name: Checkout verification tools
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@v5
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
@@ -77,21 +77,9 @@ jobs:
           EXPECTED_SHA: ${{ inputs.pr-sha }}
           PROFILE: ${{ inputs.profile }}
           PR_NUMBER: ${{ inputs.pr-number }}
-        run: >-
-          [[ "$EXPECTED_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'Invalid candidate SHA'; exit 1; }
-
-          [[ "$REPOSITORY_NAME" =~ ^[a-z0-9-]+$ ]] || { echo 'Invalid repository'; exit 1; }
-
-          [[ -z "$PR_NUMBER" || "$PR_NUMBER" =~ ^[1-9][0-9]*$ ]] || { echo 'Invalid PR number'; exit
-          1; }
-
-          case "$PROFILE" in document-transform|document-rendering|ecosystem) ;; *) exit 1 ;; esac
-
-          node -e 'if
-          (!require("./tools/testpack/scripts/downstream-check.js").isSupportedPackage(process.env.REPOSITORY_NAME))
-          throw Error("Unsupported repository");'
+        run: node tools/testpack/scripts/verification-setup.js validate
       - name: Checkout candidate repository at exact SHA
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@v5
         with:
           repository: diplodoc-platform/${{ inputs.package }}
           ref: ${{ inputs.pr-sha }}
@@ -99,7 +87,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Checkout metapackage with submodules
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@v5
         with:
           repository: diplodoc-platform/diplodoc
           ref: master
@@ -108,7 +96,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Resolve package metadata and verify candidate SHA
@@ -116,57 +104,9 @@ jobs:
         env:
           REPOSITORY_NAME: ${{ inputs.package }}
           EXPECTED_SHA: ${{ inputs.pr-sha }}
-        run: >
-          ACTUAL_SHA=$(git -C candidate-package rev-parse --verify HEAD)
-
-          if [ "${ACTUAL_SHA}" != "${EXPECTED_SHA,,}" ]; then
-            echo "Candidate checkout ${ACTUAL_SHA} does not match ${EXPECTED_SHA}"
-            exit 1
-          fi
-
-          node <<'NODE'
-
-          const fs = require('node:fs');
-
-          const {execFileSync} = require('node:child_process');
-
-          const check = require('./tools/testpack/scripts/downstream-check.js');
-
-          const repositoryName = process.env.REPOSITORY_NAME;
-
-          if (!check.isSupportedPackage(repositoryName)) {
-              throw new Error(`Unsupported repository: ${repositoryName}`);
-          }
-
-          const packagePath = check.PACKAGE_PATHS[repositoryName];
-
-          const manifest = JSON.parse(fs.readFileSync('candidate-package/package.json', 'utf8'));
-
-          if (!manifest.name) throw new Error('Candidate package.json has no name');
-
-          if (manifest.name !== check.PACKAGE_NAMES[repositoryName]) {
-              throw new Error(
-                  `Repository ${repositoryName} contains package ${manifest.name}`,
-              );
-          }
-
-          fs.appendFileSync(process.env.GITHUB_OUTPUT,
-          `path=${packagePath}\nname=${manifest.name}\n`);
-
-          const baseSha = execFileSync('git', ['-C', `metapackage/${packagePath}`, 'rev-parse',
-          'HEAD'], {encoding: 'utf8'}).trim();
-
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `base-sha=${baseSha}\n`);
-
-          fs.appendFileSync(
-              process.env.GITHUB_STEP_SUMMARY,
-              `Candidate repository: \`${repositoryName}\`\n\nCandidate package: \`${manifest.name}\`\n\nSubmodule: \`${packagePath}\`\n\nStandalone baseline SHA: \`${baseSha}\`\n\n`,
-          );
-
-          NODE
-
-
-          echo "metapackage-sha=$(git -C metapackage rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          PROFILE: ${{ inputs.profile }}
+          PR_NUMBER: ${{ inputs.pr-number }}
+        run: node tools/testpack/scripts/verification-setup.js metadata
   baseline:
     name: Build reference on an isolated runner
     needs: prepare
@@ -190,25 +130,25 @@ jobs:
           [[ "$WORKFLOW_REPOSITORY" == diplodoc-platform/testpack ]] || { echo 'Unexpected tool repository'; exit 1; }
           [[ "$WORKFLOW_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'Missing immutable workflow SHA'; exit 1; }
       - name: Checkout verification tools
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@v5
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
           path: tools/testpack
           persist-credentials: false
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Checkout standalone baseline at metapackage SHA
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@v5
         with:
           repository: diplodoc-platform/${{ inputs.package }}
           ref: ${{ needs.prepare.outputs.base-sha }}
           path: baseline-package
           persist-credentials: false
       - name: Checkout metapackage with submodules
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@v5
         with:
           repository: diplodoc-platform/diplodoc
           ref: ${{ needs.prepare.outputs.metapackage-sha }}
@@ -274,7 +214,7 @@ jobs:
       - name: Upload isolated baseline evidence
         id: evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-baseline-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.package }}-${{ inputs.pr-sha }}-${{ inputs.profile }}
           path: artifacts/
@@ -303,18 +243,18 @@ jobs:
           [[ "$WORKFLOW_REPOSITORY" == diplodoc-platform/testpack ]] || { echo 'Unexpected tool repository'; exit 1; }
           [[ "$WORKFLOW_SHA" =~ ^[0-9a-fA-F]{40}$ ]] || { echo 'Missing immutable workflow SHA'; exit 1; }
       - name: Checkout verification tools
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@v5
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
           path: tools/testpack
           persist-credentials: false
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Checkout candidate repository at exact SHA
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@v5
         with:
           repository: diplodoc-platform/${{ inputs.package }}
           ref: ${{ inputs.pr-sha }}
@@ -322,7 +262,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Checkout metapackage with submodules
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@v5
         with:
           repository: diplodoc-platform/diplodoc
           ref: ${{ needs.prepare.outputs.metapackage-sha }}
@@ -437,7 +377,7 @@ jobs:
       - name: Upload isolated candidate evidence
         id: evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-candidate-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.package }}-${{ inputs.pr-sha }}-${{ inputs.profile }}
           path: artifacts/
@@ -472,23 +412,23 @@ jobs:
           [[ "$BASELINE_RESULT" == success && "$CANDIDATE_RESULT" == success ]] || { echo
           "Incomplete verification builds"; exit 1; }
       - name: Checkout verification tools
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        uses: actions/checkout@v5
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
           path: tools/testpack
           persist-credentials: false
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        uses: actions/setup-node@v4
         with:
           node-version: '24'
       - name: Download immutable baseline artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@v4
         with:
           artifact-ids: ${{ needs.baseline.outputs.artifact-id }}
           path: baseline
       - name: Download immutable candidate artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@v4
         with:
           artifact-ids: ${{ needs.candidate.outputs.artifact-id }}
           path: candidate
@@ -498,7 +438,7 @@ jobs:
           --baseline baseline --candidate candidate --output reports
       - name: Upload trusted comparison evidence
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@v4
         with:
           name: dependency-comparison-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.package }}-${{ inputs.pr-sha }}-${{ inputs.profile }}
           path: reports/

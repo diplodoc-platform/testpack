@@ -97,7 +97,11 @@ Security invariants for repository tooling:
 
 - Never execute the candidate before the baseline/comparator in a shared job.
   Keep reference and candidate on separate hosted runners, comparison data-only,
-  artifact IDs bound to their producer jobs, and reusable tooling immutable.
+  artifact IDs bound to their producer jobs, and reusable tooling immutable
+  within a run. The owner requested Action version tags and reusable callers
+  at `@master` on 2026-10-03; do not reinstate Action SHA pins without approval.
+  Keep exact candidate/base/tooling checkout SHAs and large workflow JavaScript
+  in tested repository helpers.
 - Keep runtime JS/CSS files, numeric chunks and script attributes comparable.
   Normalize only demonstrated build nondeterminism, with both positive and
   negative fixtures. Never accept a coverage gap as "identical artifacts".

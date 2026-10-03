@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
+import {execFileSync} from 'child_process';
 import {expect, test} from '@playwright/test';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -15,9 +16,115 @@ const compare = require('../../../scripts/compare-artifacts');
 const verification = require('../../../scripts/compare-verification');
 const corpus = require('../../../scripts/build-corpus');
 const {compareCorpus} = require('../../../scripts/compare-corpus');
+const {validateInputs, resolveMetadata} = require('../../../scripts/verification-setup');
+const {classifyScope} = require('../../../scripts/golden-scope');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 test.describe('Verification security boundaries', () => {
+    test('workflow input helper rejects invalid data before candidate checkout', () => {
+        const valid = {
+            REPOSITORY_NAME: 'tabs-extension',
+            EXPECTED_SHA: 'a'.repeat(40),
+            PROFILE: 'document-transform',
+            PR_NUMBER: '29',
+        };
+        expect(() => validateInputs(valid)).not.toThrow();
+        for (const invalid of [
+            {EXPECTED_SHA: '$(unreviewed)'},
+            {REPOSITORY_NAME: '../cli'},
+            {REPOSITORY_NAME: 'unsupported'},
+            {PROFILE: 'standard-ci'},
+            {PR_NUMBER: '0'},
+        ])
+            expect(() => validateInputs({...valid, ...invalid})).toThrow();
+    });
+
+    test('scope helper distinguishes dependency-only changes, feature PRs and Git errors', () => {
+        const base = 'a'.repeat(40);
+        const head = 'b'.repeat(40);
+        const git = (_command: string, args: string[]) => {
+            if (args[0] === 'show')
+                return JSON.stringify({
+                    dependencies: {fixture: args[1].startsWith(base) ? '1' : '2'},
+                });
+            return '';
+        };
+        expect(classifyScope(base, head, git)).toEqual({
+            dependencyOnly: true,
+            hasDependencyChanges: true,
+            runComparison: true,
+        });
+        expect(
+            classifyScope(base, head, (command: string, args: string[]) =>
+                args[1] === '--name-only' ? 'src/index.ts\n' : git(command, args),
+            ),
+        ).toEqual({dependencyOnly: false, hasDependencyChanges: true, runComparison: false});
+        expect(() =>
+            classifyScope(base, head, (command: string, args: string[]) => {
+                if (args[1] === '--quiet')
+                    throw Object.assign(new Error('Git failed'), {status: 128});
+                return git(command, args);
+            }),
+        ).toThrow('Git failed');
+        expect(() => classifyScope('invalid', head, git)).toThrow('Invalid comparison SHA');
+    });
+
+    test('metadata helper resolves exact revisions and rejects wrong candidate identity', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-metadata-'));
+        try {
+            const initialize = (dir: string) => {
+                fs.mkdirSync(dir, {recursive: true});
+                const git = (args: string[]) =>
+                    execFileSync('git', ['-C', dir, ...args], {encoding: 'utf8'}).trim();
+                git(['init', '-q']);
+                git(['config', 'user.name', 'Fixture']);
+                git(['config', 'user.email', 'fixture@example.invalid']);
+                git(['commit', '-q', '--allow-empty', '-m', 'fixture']);
+                return git(['rev-parse', 'HEAD']);
+            };
+            const candidate = path.join(root, 'candidate');
+            const metapackage = path.join(root, 'metapackage');
+            const sha = initialize(candidate);
+            const metapackageSha = initialize(metapackage);
+            const baseSha = initialize(path.join(metapackage, 'extensions/tabs'));
+            const manifest = path.join(candidate, 'package.json');
+            fs.writeFileSync(manifest, JSON.stringify({name: '@diplodoc/tabs-extension'}));
+            const env = {
+                REPOSITORY_NAME: 'tabs-extension',
+                EXPECTED_SHA: sha,
+                PROFILE: 'document-transform',
+            };
+            expect(resolveMetadata(env, candidate, metapackage)).toEqual({
+                path: 'extensions/tabs',
+                name: '@diplodoc/tabs-extension',
+                baseSha,
+                metapackageSha,
+            });
+            expect(() =>
+                resolveMetadata({...env, EXPECTED_SHA: 'a'.repeat(40)}, candidate, metapackage),
+            ).toThrow('Candidate checkout does not match expected SHA');
+            fs.writeFileSync(manifest, JSON.stringify({name: '@diplodoc/cli'}));
+            expect(() => resolveMetadata(env, candidate, metapackage)).toThrow(
+                'Unexpected package name',
+            );
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true});
+        }
+    });
+
+    test('workflow JavaScript stays in trusted helper files, not YAML heredocs', () => {
+        const downstream = fs.readFileSync(
+            path.join(__dirname, '../../../.github/workflows/downstream-check.yml'),
+            'utf8',
+        );
+        const golden = fs.readFileSync(
+            path.join(__dirname, '../../../.github/workflows/golden-file-comparison.yml'),
+            'utf8',
+        );
+        expect(downstream).toContain('node tools/testpack/scripts/verification-setup.js metadata');
+        expect(golden).toContain('node ../tools/testpack/scripts/golden-scope.js');
+        expect(downstream + golden).not.toMatch(/node\s+(?:<<|-e)/);
+    });
     test('complete isolated evidence passes while a new Markdown failure or missing report blocks', () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-comparison-evidence-'));
         const baseline = path.join(root, 'baseline');
@@ -154,7 +261,7 @@ test.describe('Verification security boundaries', () => {
             for (const step of job.steps) {
                 expect(step.run || '').not.toMatch(/\$\{\{\s*inputs\./);
                 expect(step.with?.cache).toBeUndefined();
-                if (step.uses) expect(step.uses).toMatch(/@[a-f0-9]{40}$/);
+                if (step.uses) expect(step.uses).toMatch(/@v\d+(?:\.\d+)*$/);
             }
         }
     });

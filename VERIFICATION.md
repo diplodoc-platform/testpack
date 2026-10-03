@@ -115,9 +115,23 @@ Reusable tools are checked out at `job.workflow_sha` from
 [GitHub.com job context properties](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#job-context),
 not caller-controlled `github.sha`. Validators that predate those properties
 (including actionlint 1.7.12) report false positives for these two properties;
-ignore only that exact diagnostic, not all expression errors. Distributed callers
-must pin the reusable workflow to an approved full SHA. Updating that pin is a
-reviewed change. Do not pass repository secrets to candidate builds.
+ignore only that exact diagnostic, not all expression errors. By the owner's
+decision, distributed callers use `@master` and Actions use version tags instead
+of commit hashes. Those references can change between runs; each run still loads
+its tools from its resolved workflow SHA. Mutable tags accept an upstream
+replacement risk and do not guarantee compatibility. Do not pass repository
+secrets to candidate builds.
+
+Workflow JavaScript lives in repository helpers: `scripts/verification-setup.js`
+validates inputs and resolves the candidate/baseline metadata, while
+`scripts/golden-scope.js` classifies a dependency-only diff without executing PR
+code. Both have focused repository tests. Scope/comparison helpers come from the
+trusted PR base, not from candidate artifacts. Merge these helpers into `master`
+before running dependency PRs based on that revision.
+
+The npm cache parameters remain intentionally absent: candidate build scripts
+must not populate a cache later reused by the trusted baseline. Each isolated
+build performs a clean locked install instead.
 
 Runner separation protects the reference and comparator, but does not make this
 a malware scanner: a package controls its own build and test process. Keep
