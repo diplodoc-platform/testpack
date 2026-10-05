@@ -427,11 +427,13 @@ jobs:
         with:
           artifact-ids: ${{ needs.baseline.outputs.artifact-id }}
           path: baseline
+          merge-multiple: true
       - name: Download immutable candidate artifact
         uses: actions/download-artifact@v4
         with:
           artifact-ids: ${{ needs.candidate.outputs.artifact-id }}
           path: candidate
+          merge-multiple: true
       - name: Compare HTML, Markdown, exports and consumers
         run: >-
           node tools/testpack/scripts/compare-verification.js --package "$REPOSITORY_NAME"

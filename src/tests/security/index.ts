@@ -20,6 +20,44 @@ const {validateInputs, resolveMetadata} = require('../../../scripts/verification
 const {classifyScope} = require('../../../scripts/golden-scope');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
+type ArtifactDownloadInputs = {
+    'artifact-ids': string;
+    path: string;
+    'merge-multiple'?: boolean;
+};
+
+const writeEvidenceFixture = (dir: string, role: string, kind: string) => {
+    fs.mkdirSync(path.join(dir, `${role}-downstream`), {recursive: true});
+    fs.writeFileSync(
+        path.join(dir, `${role}-downstream/downstream-result.json`),
+        JSON.stringify({package: 'cut-extension', consumers: []}),
+    );
+    for (const scope of ['', 'standalone-']) {
+        fs.writeFileSync(
+            path.join(dir, `${role}-${scope}package-targets.json`),
+            JSON.stringify({ok: true, checked: ['./index.js'], missing: []}),
+        );
+    }
+    for (const format of ['html', 'md'])
+        fs.mkdirSync(path.join(dir, kind, format, 'output'), {recursive: true});
+    fs.writeFileSync(path.join(dir, kind, 'html/output/index.html'), '<p>same</p>');
+    fs.writeFileSync(path.join(dir, kind, 'md/output/index.md'), 'same');
+};
+
+// download-artifact@v4 treats only a name-selected download as "single".
+// ID-selected downloads get a name subdirectory unless merge-multiple is true.
+// Contract: https://github.com/actions/download-artifact/blob/v4/src/download-artifact.ts#L158-L166
+const unpackIdSelectedFixture = (
+    source: string,
+    root: string,
+    artifactName: string,
+    inputs: ArtifactDownloadInputs,
+) => {
+    const directory = path.join(root, inputs.path);
+    const destination = inputs['merge-multiple'] ? directory : path.join(directory, artifactName);
+    fs.cpSync(source, destination, {recursive: true});
+};
+
 test.describe('Verification security boundaries', () => {
     test('workflow input helper rejects invalid data before candidate checkout', () => {
         const valid = {
@@ -134,21 +172,7 @@ test.describe('Verification security boundaries', () => {
                 [baseline, 'base', 'expected'],
                 [candidate, 'candidate', 'actual'],
             ]) {
-                fs.mkdirSync(path.join(dir, `${role}-downstream`), {recursive: true});
-                fs.writeFileSync(
-                    path.join(dir, `${role}-downstream/downstream-result.json`),
-                    JSON.stringify({package: 'cut-extension', consumers: []}),
-                );
-                for (const scope of ['', 'standalone-']) {
-                    fs.writeFileSync(
-                        path.join(dir, `${role}-${scope}package-targets.json`),
-                        JSON.stringify({ok: true, checked: ['./index.js'], missing: []}),
-                    );
-                }
-                for (const format of ['html', 'md'])
-                    fs.mkdirSync(path.join(dir, kind, format, 'output'), {recursive: true});
-                fs.writeFileSync(path.join(dir, kind, 'html/output/index.html'), '<p>same</p>');
-                fs.writeFileSync(path.join(dir, kind, 'md/output/index.md'), 'same');
+                writeEvidenceFixture(dir, role, kind);
             }
             expect(
                 verification.compareVerification('cut-extension', baseline, candidate).passed,
@@ -165,6 +189,80 @@ test.describe('Verification security boundaries', () => {
             fs.rmSync(root, {recursive: true, force: true});
         }
     });
+
+    for (const [workflowName, comparisonJob, golden] of [
+        ['downstream-check.yml', 'comparison', false],
+        ['golden-file-comparison.yml', 'golden-file-comparison', true],
+    ] as const) {
+        test(`${workflowName} unpacks producer ID artifacts at the comparator roots`, () => {
+            const workflow = yaml.load(
+                fs.readFileSync(
+                    path.join(__dirname, '../../../.github/workflows', workflowName),
+                    'utf8',
+                ),
+            );
+            const downloads = (
+                workflow.jobs[comparisonJob].steps as {
+                    uses?: string;
+                    with?: ArtifactDownloadInputs;
+                }[]
+            ).filter((step) => step.uses?.startsWith('actions/download-artifact@'));
+            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-artifact-layout-'));
+            const flat = path.join(root, 'downloaded');
+            const nested = path.join(root, 'without-merge');
+            const compareDownloaded = (dir: string) =>
+                golden
+                    ? compareCorpus(
+                          path.join(dir, 'baseline/expected'),
+                          path.join(dir, 'candidate/actual'),
+                      )
+                    : verification.compareVerification(
+                          'cut-extension',
+                          path.join(dir, 'baseline'),
+                          path.join(dir, 'candidate'),
+                      );
+            try {
+                expect(downloads).toHaveLength(2);
+                for (const [producer, role, kind] of [
+                    ['baseline', 'base', 'expected'],
+                    ['candidate', 'candidate', 'actual'],
+                ]) {
+                    const id = '${{ needs.' + producer + '.outputs.artifact-id }}';
+                    const inputs = downloads.find(
+                        (step) => step.with?.['artifact-ids'] === id,
+                    )?.with;
+                    if (!inputs) throw new Error(`Missing producer-bound download: ${producer}`);
+                    const payload = path.join(root, 'uploaded', producer);
+                    const artifactName = `unrelated-to-path-${producer}-123456`;
+                    writeEvidenceFixture(payload, role, kind);
+                    unpackIdSelectedFixture(payload, flat, artifactName, inputs);
+                    unpackIdSelectedFixture(payload, nested, artifactName, {
+                        ...inputs,
+                        'merge-multiple': false,
+                    });
+                }
+
+                expect(compareDownloaded(flat).passed).toBe(true);
+                expect(() => compareDownloaded(nested)).toThrow(
+                    golden ? 'Incomplete corpus evidence' : /ENOENT/,
+                );
+                for (const producer of ['baseline', 'candidate']) {
+                    expect(downloads.find((step) => step.with?.path === producer)?.with).toEqual({
+                        'artifact-ids': '${{ needs.' + producer + '.outputs.artifact-id }}',
+                        path: producer,
+                        'merge-multiple': true,
+                    });
+                }
+                fs.writeFileSync(
+                    path.join(flat, 'candidate/actual/md/output/index.md'),
+                    'regression',
+                );
+                expect(compareDownloaded(flat).passed).toBe(false);
+            } finally {
+                fs.rmSync(root, {recursive: true, force: true});
+            }
+        });
+    }
 
     test('golden comparison reads only base tooling and immutable artifacts on its own runner', () => {
         const workflow = yaml.load(

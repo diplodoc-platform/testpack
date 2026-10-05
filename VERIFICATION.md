@@ -106,7 +106,14 @@ The workflow has four separate hosted jobs: metadata-only `prepare`, isolated
 `baseline` and `candidate` builds, and trusted `comparison`. The last job never
 installs or executes package code; it reads artifacts by IDs emitted by the
 corresponding upload steps. Missing builds, artifacts, consumer evidence or corpus
-files fail closed. Build jobs do not share an npm cache. The older
+files fail closed. Each ID-selected download sets `merge-multiple: true` to unpack
+directly into its own `baseline/` or `candidate/` root. Without that option,
+download-artifact v4 adds an artifact-name subdirectory even for one selected ID,
+which violates the comparator path contract. Baseline and candidate remain
+separate directories; selection still uses only their producer artifact IDs.
+The repository regression tests cover both the flattened passing layout and
+the nested failing layout, and retain Markdown regression detection.
+Build jobs do not share an npm cache. The older
 `golden-file-comparison.yml` follows the same runner separation and reads its tools
 from the immutable PR base SHA.
 
