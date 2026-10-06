@@ -42,7 +42,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@playwright/test": "^1.60.0"
+    "@playwright/test": "^1.61.1"
   },
   "devDependencies": {
     "@diplodoc/cli": "5.57.3",
