@@ -357,9 +357,14 @@ jobs:
         id: browser
         continue-on-error: true
         env:
-          PLAYWRIGHT_HTML_REPORT: ${{ github.workspace }}/artifacts/playwright-report
+          TESTPACK_ROOT: ${{ github.workspace }}/metapackage/devops/testpack
+          CANDIDATE_CORPUS: ${{ github.workspace }}/artifacts/actual/html/output
+          BROWSER_ARTIFACTS: ${{ github.workspace }}/artifacts
         run: |
+          node "$GITHUB_WORKSPACE/tools/testpack/scripts/candidate-browser.js"
           npx playwright test \
+            --config "$GITHUB_WORKSPACE/artifacts/candidate-playwright.config.ts" \
+            --update-snapshots=none \
             --output "$GITHUB_WORKSPACE/artifacts/playwright-output" \
             --trace retain-on-failure
         working-directory: metapackage/devops/testpack

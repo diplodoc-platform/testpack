@@ -383,13 +383,12 @@ test.describe('Client', () => {
 
             const darkThemeItem = page
                 .locator('.dc-settings-control__list-item')
-                .filter({hasText: 'Темная'});
+                .filter({hasText: /Т[её]мная/});
             const themeLabel = darkThemeItem.locator('label.g-switch');
 
             await themeLabel.click();
 
-            const bodyClass = await page.evaluate(() => document.body.className);
-            expect(bodyClass).toContain('g-root_theme_dark');
+            await expect(page.locator('body')).toHaveClass(/\bg-root_theme_dark\b/);
         });
 
         test('should toggle wide format via settings popover', async ({page}) => {

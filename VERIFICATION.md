@@ -99,6 +99,16 @@ SHA, and then:
 6. runs known downstream consumer checks plus normalized HTML, Markdown and SVG
    comparison.
 
+For rendering profiles, `scripts/candidate-browser.js` overrides the development
+web server: it serves `artifacts/actual/html/output` using the already-built
+testpack server, never runs `npm run docs` or resolves an npm CLI via `npx`, and
+never reuses an existing server. Browsers therefore exercise the same candidate
+HTML/assets that the comparator receives. Snapshot updates are disabled. The
+uploaded `candidate-browser.json` records the candidate SHA, absolute served
+directory, sorted file digests and corpus digest; JSON/HTML browser reports are
+uploaded alongside it. This binds diagnostics to the build, not an authenticity
+claim about untrusted candidate code running inside its isolated runner.
+
 The workflow does not install dependencies independently inside consumer
 directories, so it tests the actual metapackage dependency graph.
 

@@ -18,6 +18,7 @@ const corpus = require('../../../scripts/build-corpus');
 const {compareCorpus} = require('../../../scripts/compare-corpus');
 const {validateInputs, resolveMetadata} = require('../../../scripts/verification-setup');
 const {classifyScope} = require('../../../scripts/golden-scope');
+const {prepareBrowser, inventoryCorpus} = require('../../../scripts/candidate-browser');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 type ArtifactDownloadInputs = {
@@ -59,6 +60,82 @@ const unpackIdSelectedFixture = (
 };
 
 test.describe('Verification security boundaries', () => {
+    test('browsers serve and fingerprint the candidate corpus without rebuilding docs or updating screenshots', () => {
+        const root = fs.realpathSync(
+            fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-browser-corpus-')),
+        );
+        try {
+            const testpack = path.join(root, 'testpack');
+            const candidate = path.join(root, 'actual/html/output');
+            const unrelated = path.join(testpack, 'docs/output');
+            fs.mkdirSync(path.join(testpack, 'build/server'), {recursive: true});
+            fs.writeFileSync(path.join(testpack, 'build/server/index.js'), '// fixture');
+            fs.mkdirSync(candidate, {recursive: true});
+            fs.mkdirSync(unrelated, {recursive: true});
+            fs.writeFileSync(path.join(candidate, 'index.html'), '<p>candidate</p>');
+            fs.writeFileSync(path.join(unrelated, 'index.html'), '<p>npm CLI</p>');
+            const env = {
+                TESTPACK_ROOT: testpack,
+                CANDIDATE_CORPUS: candidate,
+                BROWSER_ARTIFACTS: root,
+                PR_SHA: 'a'.repeat(40),
+            };
+            const result = prepareBrowser(env);
+            expect(result.config.webServer).toEqual({
+                command: `node ${JSON.stringify(path.join(testpack, 'build/server/index.js'))}`,
+                cwd: testpack,
+                url: 'http://localhost:3000',
+                env: {PROJECT: candidate, PORT: '3000'},
+                reuseExistingServer: false,
+            });
+            expect(result.config.updateSnapshots).toBe('none');
+            expect(result.evidence.candidateSha).toBe(env.PR_SHA);
+            expect(result.evidence.files).toHaveLength(1);
+            const digest = result.evidence.corpusSha256;
+            fs.writeFileSync(path.join(candidate, 'index.html'), '<p>regression</p>');
+            expect(prepareBrowser(env).evidence.corpusSha256).not.toBe(digest);
+            expect(() => prepareBrowser({...env, PR_SHA: 'wrong'})).toThrow(
+                'Invalid candidate SHA',
+            );
+            expect(() => prepareBrowser({...env, CANDIDATE_CORPUS: 'docs/output'})).toThrow(
+                'Missing absolute',
+            );
+            expect(() =>
+                prepareBrowser({...env, CANDIDATE_CORPUS: path.join(root, 'missing')}),
+            ).toThrow();
+            fs.unlinkSync(path.join(candidate, 'index.html'));
+            expect(() => inventoryCorpus(candidate)).toThrow('contains no HTML');
+            if (process.platform !== 'win32') {
+                fs.symlinkSync(
+                    path.join(unrelated, 'index.html'),
+                    path.join(candidate, 'index.html'),
+                );
+                expect(() => inventoryCorpus(candidate)).toThrow('symlinks');
+            }
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true});
+        }
+    });
+
+    test('rendering workflow uses immutable browser tooling and the compared candidate HTML', () => {
+        const workflow = yaml.load(
+            fs.readFileSync(
+                path.join(__dirname, '../../../.github/workflows/downstream-check.yml'),
+                'utf8',
+            ),
+        );
+        const browser = workflow.jobs.candidate.steps.find(
+            (step: {id?: string}) => step.id === 'browser',
+        );
+        expect(browser.env.CANDIDATE_CORPUS).toBe(
+            '${{ github.workspace }}/artifacts/actual/html/output',
+        );
+        expect(browser.run).toContain('tools/testpack/scripts/candidate-browser.js');
+        expect(browser.run).toContain(
+            '--config "$GITHUB_WORKSPACE/artifacts/candidate-playwright.config.ts"',
+        );
+        expect(browser.run).toContain('--update-snapshots=none');
+    });
     test('workflow input helper rejects invalid data before candidate checkout', () => {
         const valid = {
             REPOSITORY_NAME: 'tabs-extension',
