@@ -6,6 +6,7 @@ import {expect, test} from '@playwright/test';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const downstreamCheck = require('../../../scripts/downstream-check.js');
+const {resolveRepositoryCorpus} = require('../../../scripts/repository-corpus.js');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 const DEEP_VERIFICATION_WORKFLOW = fs.readFileSync(
@@ -668,11 +669,9 @@ test.describe('Downstream Check', () => {
 
     test.describe('runDownstreamCheck — corpus comparison', () => {
         test('should run semantic + visual comparison when dirs provided', () => {
-            const docsOutput = path.join(__dirname, '..', '..', '..', 'docs', 'output');
-            if (!fs.existsSync(docsOutput)) {
-                test.skip(true, 'docs/output does not exist');
-                return;
-            }
+            const docsOutput = resolveRepositoryCorpus(
+                path.join(__dirname, '..', '..', '..', 'docs', 'output'),
+            );
             const result = downstreamCheck.runDownstreamCheck('transform', {
                 metapackageRoot: METAPACKAGE_ROOT,
                 skipBuild: true,

@@ -19,6 +19,7 @@ const {compareCorpus} = require('../../../scripts/compare-corpus');
 const {validateInputs, resolveMetadata} = require('../../../scripts/verification-setup');
 const {classifyScope} = require('../../../scripts/golden-scope');
 const {prepareBrowser, inventoryCorpus} = require('../../../scripts/candidate-browser');
+const {resolveRepositoryCorpus} = require('../../../scripts/repository-corpus');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 type ArtifactDownloadInputs = {
@@ -60,6 +61,56 @@ const unpackIdSelectedFixture = (
 };
 
 test.describe('Verification security boundaries', () => {
+    test('repository tests prefer the explicit frozen corpus and reject missing or invalid inputs', () => {
+        const root = fs.realpathSync(
+            fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-repository-corpus-')),
+        );
+        try {
+            const local = path.join(root, 'docs/output');
+            const frozen = path.join(
+                root,
+                process.platform === 'win32' ? 'frozen candidate' : 'frozen "candidate"',
+            );
+            for (const directory of [local, frozen]) {
+                fs.mkdirSync(directory, {recursive: true});
+                fs.writeFileSync(path.join(directory, 'index.html'), '<p>fixture</p>');
+            }
+            expect(resolveRepositoryCorpus(local, {})).toBe(local);
+            expect(resolveRepositoryCorpus(local, {CANDIDATE_CORPUS: frozen})).toBe(frozen);
+            for (const invalid of ['', 'relative', path.join(root, 'missing')]) {
+                expect(() => resolveRepositoryCorpus(local, {CANDIDATE_CORPUS: invalid})).toThrow(
+                    /corpus|CANDIDATE_CORPUS/,
+                );
+            }
+            fs.rmSync(local, {recursive: true});
+            expect(resolveRepositoryCorpus(local, {CANDIDATE_CORPUS: frozen})).toBe(frozen);
+            expect(() => resolveRepositoryCorpus(local, {})).toThrow('Build local docs');
+            fs.unlinkSync(path.join(frozen, 'index.html'));
+            expect(() => resolveRepositoryCorpus(local, {CANDIDATE_CORPUS: frozen})).toThrow(
+                'contains no HTML',
+            );
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true});
+        }
+    });
+
+    test('both isolated corpus producers retain hidden evidence only inside artifacts', () => {
+        for (const name of ['downstream-check.yml', 'golden-file-comparison.yml']) {
+            const workflow = yaml.load(
+                fs.readFileSync(path.join(__dirname, '../../../.github/workflows', name), 'utf8'),
+            );
+            for (const job of ['baseline', 'candidate']) {
+                const upload = workflow.jobs[job].steps.find(
+                    (step: {id?: string}) => step.id === 'evidence',
+                );
+                expect(upload.uses).toBe('actions/upload-artifact@v4');
+                expect(upload.with.path).toBe('artifacts/');
+                expect(upload.with['include-hidden-files']).toBe(true);
+                expect(upload.with['if-no-files-found']).toBe('error');
+            }
+        }
+    });
+
     test('browsers serve and fingerprint the candidate corpus without rebuilding docs or updating screenshots', () => {
         const root = fs.realpathSync(
             fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-browser-corpus-')),
@@ -73,6 +124,7 @@ test.describe('Verification security boundaries', () => {
             fs.mkdirSync(candidate, {recursive: true});
             fs.mkdirSync(unrelated, {recursive: true});
             fs.writeFileSync(path.join(candidate, 'index.html'), '<p>candidate</p>');
+            fs.writeFileSync(path.join(candidate, '.yfm'), 'hidden corpus configuration');
             fs.writeFileSync(path.join(unrelated, 'index.html'), '<p>npm CLI</p>');
             const env = {
                 TESTPACK_ROOT: testpack,
@@ -90,8 +142,20 @@ test.describe('Verification security boundaries', () => {
             });
             expect(result.config.updateSnapshots).toBe('none');
             expect(result.evidence.candidateSha).toBe(env.PR_SHA);
-            expect(result.evidence.files).toHaveLength(1);
+            expect(result.evidence.files).toHaveLength(2);
+            expect(result.evidence.files.map((file: {path: string}) => file.path)).toEqual([
+                '.yfm',
+                'index.html',
+            ]);
             const digest = result.evidence.corpusSha256;
+            const downloaded = path.join(root, 'downloaded');
+            fs.cpSync(candidate, downloaded, {recursive: true});
+            expect(inventoryCorpus(downloaded)).toEqual(result.evidence.files);
+            fs.unlinkSync(path.join(downloaded, '.yfm'));
+            expect(inventoryCorpus(downloaded)).not.toEqual(result.evidence.files);
+            fs.writeFileSync(path.join(candidate, '.yfm'), 'changed hidden configuration');
+            expect(prepareBrowser(env).evidence.corpusSha256).not.toBe(digest);
+            fs.writeFileSync(path.join(candidate, '.yfm'), 'hidden corpus configuration');
             fs.writeFileSync(path.join(candidate, 'index.html'), '<p>regression</p>');
             expect(prepareBrowser(env).evidence.corpusSha256).not.toBe(digest);
             expect(() => prepareBrowser({...env, PR_SHA: 'wrong'})).toThrow(

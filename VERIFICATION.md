@@ -109,6 +109,20 @@ directory, sorted file digests and corpus digest; JSON/HTML browser reports are
 uploaded alongside it. This binds diagnostics to the build, not an authenticity
 claim about untrusted candidate code running inside its isolated runner.
 
+Repository comparator/downstream tests use `CANDIDATE_CORPUS` too, through
+`scripts/repository-corpus.js`. Local development defaults to `docs/output` only
+when that variable is absent. An invalid explicit path, missing directory or
+corpus without HTML fails with an actionable error instead of silently skipping
+coverage or comparing unrelated local docs.
+
+Both Golden File Comparison and Dependency Deep Verification producer uploads
+enable `include-hidden-files` within the dedicated `artifacts/` directory. This
+retains `.yfm` and allows downloaded file inventories to match the complete
+`candidate-browser.json` digest. Never broaden the upload path to a checkout or
+put credentials in that evidence directory. The comparison runner still treats
+all uploaded candidate content as untrusted data; hidden-file inclusion grants
+no execution rights or authenticity guarantee.
+
 The workflow does not install dependencies independently inside consumer
 directories, so it tests the actual metapackage dependency graph.
 

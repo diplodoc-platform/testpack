@@ -111,6 +111,15 @@ Security invariants for repository tooling:
   via `scripts/candidate-browser.js`, not rebuild `docs/output` with an npm CLI.
   Preserve candidate SHA/file digests in browser evidence, disable screenshot
   updates and never reuse an existing browser server in this verification path.
+- Repository comparator/downstream tests must resolve `CANDIDATE_CORPUS` using
+  `scripts/repository-corpus.js`; local `docs/output` is only the default when no
+  explicit corpus is supplied. Missing or invalid corpora are failures, not skips.
+  Preserve hidden corpus files such as `.yfm` in both isolated producer artifacts
+  so the complete browser inventory/digest can be replayed after download. Keep
+  uploads scoped to the dedicated `artifacts/` directory, never the checkout.
+- Search keyboard tests must wait for visible results and completed loading
+  before sending one navigation key. Keep the delayed-index regression test;
+  do not replace readiness assertions with sleeps or repeated key presses.
 - Maintain focused adversarial tests under `src/tests/security`, imported only by
   `tests/repository.spec.ts`, not the published cross-package suites. See
   `VERIFICATION.md` for trust boundaries and remaining limitations.

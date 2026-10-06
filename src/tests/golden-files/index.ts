@@ -1,4 +1,4 @@
-import {execSync} from 'child_process';
+import {execFileSync, execSync} from 'child_process';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -7,6 +7,7 @@ import {expect, test} from '@playwright/test';
 /* eslint-disable @typescript-eslint/no-require-imports */
 const compareArtifacts = require('../../../scripts/compare-artifacts.js');
 const compareSvgDom = require('../../../scripts/compare-svg-dom.js');
+const {resolveRepositoryCorpus} = require('../../../scripts/repository-corpus.js');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 const DOCS_OUTPUT = path.join(__dirname, '..', '..', '..', 'docs', 'output');
@@ -88,12 +89,9 @@ test.describe('Golden File Comparison', () => {
     });
 
     test.describe('compare-artifacts — listFiles', () => {
-        test('should list files in docs/output', () => {
-            if (!fs.existsSync(DOCS_OUTPUT)) {
-                test.skip(true, 'docs/output does not exist');
-                return;
-            }
-            const files = compareArtifacts.listFiles(DOCS_OUTPUT);
+        test('should list files in the verification corpus', () => {
+            const docsOutput = resolveRepositoryCorpus(DOCS_OUTPUT);
+            const files = compareArtifacts.listFiles(docsOutput);
             expect(files.length).toBeGreaterThan(0);
             expect(files.some((f: string) => f.endsWith('.html'))).toBe(true);
         });
@@ -341,11 +339,8 @@ test.describe('Golden File Comparison', () => {
 
     test.describe('compare-artifacts — compareArtifacts (integration)', () => {
         test('should detect no differences when comparing same directory', () => {
-            if (!fs.existsSync(DOCS_OUTPUT)) {
-                test.skip(true, 'docs/output does not exist');
-                return;
-            }
-            const result = compareArtifacts.compareArtifacts(DOCS_OUTPUT, DOCS_OUTPUT);
+            const docsOutput = resolveRepositoryCorpus(DOCS_OUTPUT);
+            const result = compareArtifacts.compareArtifacts(docsOutput, docsOutput);
             expect(result.hasDifferences).toBe(false);
         });
 
@@ -769,12 +764,9 @@ test.describe('Golden File Comparison', () => {
     });
 
     test.describe('compare-svg-dom — listSvgFiles', () => {
-        test('should list SVG files in docs/output', () => {
-            if (!fs.existsSync(DOCS_OUTPUT)) {
-                test.skip(true, 'docs/output does not exist');
-                return;
-            }
-            const files = compareSvgDom.listSvgFiles(DOCS_OUTPUT);
+        test('should list SVG files in the verification corpus', () => {
+            const docsOutput = resolveRepositoryCorpus(DOCS_OUTPUT);
+            const files = compareSvgDom.listSvgFiles(docsOutput);
             expect(files.length).toBeGreaterThan(0);
             expect(files.every((f: string) => f.endsWith('.svg'))).toBe(true);
         });
@@ -787,11 +779,8 @@ test.describe('Golden File Comparison', () => {
 
     test.describe('compare-svg-dom — compareSvgDoms (integration)', () => {
         test('should detect no differences when comparing same directory', () => {
-            if (!fs.existsSync(DOCS_OUTPUT)) {
-                test.skip(true, 'docs/output does not exist');
-                return;
-            }
-            const result = compareSvgDom.compareSvgDoms(DOCS_OUTPUT, DOCS_OUTPUT);
+            const docsOutput = resolveRepositoryCorpus(DOCS_OUTPUT);
+            const result = compareSvgDom.compareSvgDoms(docsOutput, docsOutput);
             expect(result.hasDifferences).toBe(false);
         });
 
@@ -837,10 +826,7 @@ test.describe('Golden File Comparison', () => {
 
     test.describe('CLI scripts — execution', () => {
         test('compare-artifacts.js should exit 0 for identical dirs', () => {
-            if (!fs.existsSync(DOCS_OUTPUT)) {
-                test.skip(true, 'docs/output does not exist');
-                return;
-            }
+            const docsOutput = resolveRepositoryCorpus(DOCS_OUTPUT);
             const script = path.join(
                 __dirname,
                 '..',
@@ -849,18 +835,29 @@ test.describe('Golden File Comparison', () => {
                 'scripts',
                 'compare-artifacts.js',
             );
-            const cmd = `node "${script}" --expected "${DOCS_OUTPUT}" --actual "${DOCS_OUTPUT}"`;
-            expect(() => execSync(cmd, {encoding: 'utf-8'})).not.toThrow();
+            expect(() =>
+                execFileSync(
+                    process.execPath,
+                    [script, '--expected', docsOutput, '--actual', docsOutput],
+                    {
+                        encoding: 'utf-8',
+                    },
+                ),
+            ).not.toThrow();
         });
 
         test('compare-svg-dom.js should exit 0 for identical dirs', () => {
-            if (!fs.existsSync(DOCS_OUTPUT)) {
-                test.skip(true, 'docs/output does not exist');
-                return;
-            }
+            const docsOutput = resolveRepositoryCorpus(DOCS_OUTPUT);
             const script = path.join(__dirname, '..', '..', '..', 'scripts', 'compare-svg-dom.js');
-            const cmd = `node "${script}" --expected "${DOCS_OUTPUT}" --actual "${DOCS_OUTPUT}"`;
-            expect(() => execSync(cmd, {encoding: 'utf-8'})).not.toThrow();
+            expect(() =>
+                execFileSync(
+                    process.execPath,
+                    [script, '--expected', docsOutput, '--actual', docsOutput],
+                    {
+                        encoding: 'utf-8',
+                    },
+                ),
+            ).not.toThrow();
         });
 
         test('compare-artifacts.js should exit 1 for different dirs', () => {
