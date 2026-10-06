@@ -93,6 +93,7 @@ jobs:
         with:
           name: golden-baseline-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
   candidate:
@@ -156,6 +157,7 @@ jobs:
         with:
           name: golden-candidate-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
       - name: Fail for screenshot regressions

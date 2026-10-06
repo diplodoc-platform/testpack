@@ -218,6 +218,7 @@ jobs:
         with:
           name: dependency-baseline-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.package }}-${{ inputs.pr-sha }}-${{ inputs.profile }}
           path: artifacts/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
   candidate:
@@ -386,6 +387,7 @@ jobs:
         with:
           name: dependency-candidate-${{ github.run_id }}-${{ github.run_attempt }}-${{ inputs.package }}-${{ inputs.pr-sha }}-${{ inputs.profile }}
           path: artifacts/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 30
       - name: Fail for browser regressions

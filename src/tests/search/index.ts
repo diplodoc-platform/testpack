@@ -387,24 +387,37 @@ test.describe('Search Suggest', () => {
             await expect(firstItem).toHaveAttribute('role', 'option');
         });
 
-        test('should handle keyboard navigation with proper focus management', async ({page}) => {
-            // Arrange
-            const searchInput = getSearchInput(page);
+        for (const delayed of [false, true]) {
+            const title = delayed
+                ? 'should handle keyboard focus after delayed search index loading'
+                : 'should handle keyboard navigation with proper focus management';
+            test(title, async ({page, context}) => {
+                // Arrange - Model a slow index, not a readiness delay in the test.
+                let delayedRequests = 0;
+                if (delayed) {
+                    await context.route('**/_search/**/*-index.js', async (route) => {
+                        delayedRequests++;
+                        await new Promise((resolve) => setTimeout(resolve, 1500));
+                        await route.continue();
+                    });
+                    await page.reload();
+                }
+                const searchInput = getSearchInput(page);
+                const firstItem = page.locator(SEARCH_SELECTORS.searchItem).first();
 
-            // Act - Type and navigate
-            await searchInput.click();
-            await searchInput.fill(TEST_QUERIES.VALID);
-            await page.waitForTimeout(500);
+                // Act - Navigate only once results are available and loading is done.
+                await searchInput.click();
+                await searchInput.fill(TEST_QUERIES.VALID);
+                await expect(firstItem).toBeVisible();
+                await expect(page.locator(SEARCH_SELECTORS.searchLoader)).toBeHidden();
+                await expect(searchInput).toBeFocused();
+                await searchInput.press('ArrowDown');
 
-            const searchItems = page.locator(SEARCH_SELECTORS.searchItem);
-
-            await page.keyboard.press('ArrowDown');
-
-            // Assert - Focus should be managed properly
-            // TODO:
-            // await expect(searchItems.first()).toHaveAttribute('aria-selected', 'true');
-            await expect(searchItems.first()).toHaveAttribute('data-qa', 'list-active-item');
-        });
+                // Assert - The first result is active without retrying the key press.
+                await expect(firstItem).toHaveAttribute('data-qa', 'list-active-item');
+                if (delayed) expect(delayedRequests).toBeGreaterThan(0);
+            });
+        }
     });
 
     test.describe('Performance and debouncing', () => {
