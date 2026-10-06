@@ -107,6 +107,10 @@ Security invariants for repository tooling:
   negative fixtures. Never accept a coverage gap as "identical artifacts".
 - Corpus outputs must be fresh directories. Do not add recursive deletion of
   caller-supplied paths. Preserve the caller's checkout and user files on failure.
+- Rendering verification must serve the already-built candidate HTML corpus
+  via `scripts/candidate-browser.js`, not rebuild `docs/output` with an npm CLI.
+  Preserve candidate SHA/file digests in browser evidence, disable screenshot
+  updates and never reuse an existing browser server in this verification path.
 - Maintain focused adversarial tests under `src/tests/security`, imported only by
   `tests/repository.spec.ts`, not the published cross-package suites. See
   `VERIFICATION.md` for trust boundaries and remaining limitations.
