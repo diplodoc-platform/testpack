@@ -2,6 +2,10 @@ import type {Page} from '@playwright/test';
 
 import {expect, test} from '@playwright/test';
 
+import {installMiniTocDiagnostics, readMiniTocDiagnostics} from './mini-toc-diagnostics';
+
+const miniTocDiagnostics = process.env.MINI_TOC_DIAGNOSTICS === '1';
+
 const CONTENT = {
     PAGE_TITLE: 'Components',
     STAGE_LABEL: 'PREVIEW',
@@ -69,7 +73,11 @@ async function waitForMiniTocReady(page: Page) {
 }
 
 test.describe('Components', () => {
-    test.beforeEach(async ({page}) => {
+    test.beforeEach(async ({page, context}, testInfo) => {
+        if (miniTocDiagnostics && testInfo.titlePath.includes('Mini TOC')) {
+            await context.tracing.start({screenshots: true, snapshots: true, sources: true});
+            await installMiniTocDiagnostics(page);
+        }
         await page.goto('./ru/syntax/components');
     });
 
@@ -270,26 +278,25 @@ test.describe('Components', () => {
             await expect(firstSection).toHaveClass(/dc-mini-toc__section_active/);
         });
 
-        test.afterEach(async ({page}, testInfo) => {
-            if (testInfo.status === testInfo.expectedStatus || page.isClosed()) return;
-            const state = await page.evaluate(() => {
-                const heading = document.getElementById('content-rendering');
-                return {
-                    url: location.href,
-                    viewport: {width: innerWidth, height: innerHeight},
-                    scrollY,
-                    target: heading?.getBoundingClientRect().toJSON(),
-                    active: Array.from(
-                        document.querySelectorAll('.dc-mini-toc__section_active'),
-                        (element) => element.getAttribute('data-hash'),
-                    ),
-                    fonts: document.fonts.status,
-                };
-            });
-            await testInfo.attach('mini-toc-state', {
-                body: JSON.stringify(state, null, 2),
-                contentType: 'text/plain',
-            });
+        test.afterEach(async ({page, context}, testInfo) => {
+            try {
+                if (page.isClosed()) return;
+                if (!miniTocDiagnostics && testInfo.status === testInfo.expectedStatus) return;
+                const state = await readMiniTocDiagnostics(page);
+                await testInfo.attach('mini-toc-state', {
+                    body: JSON.stringify(state, null, 2),
+                    contentType: 'application/json',
+                });
+            } finally {
+                if (miniTocDiagnostics) {
+                    const trace = testInfo.outputPath('mini-toc-trace.zip');
+                    await context.tracing.stop({path: trace});
+                    await testInfo.attach('mini-toc-trace', {
+                        path: trace,
+                        contentType: 'application/zip',
+                    });
+                }
+            }
         });
 
         test.describe('Navigation to an offscreen heading', () => {

@@ -1,0 +1,57 @@
+name: Mini TOC Windows diagnostics
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - '.github/workflows/mini-toc-diagnostics.yml'
+      - 'playwright.mini-toc.config.ts'
+      - 'src/tests/components/**'
+      - 'src/tests/security/mini-toc-diagnostics.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [navigation, full-suite]
+    env:
+      MINI_TOC_DIAGNOSTICS: '1'
+      MINI_TOC_SCENARIO: ${{ matrix.scenario }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Record checked revision
+        run: git rev-parse HEAD
+
+      - name: Setup Node.js and install dependencies
+        uses: diplodoc-platform/setup-node-action@v1
+        with:
+          node-version: '24'
+
+      - name: Repeat real navigation without retries
+        if: matrix.scenario == 'navigation'
+        run: npm test -- --config playwright.mini-toc.config.ts --grep "Components.*Mini TOC.*Navigation to" --repeat-each 50 --workers 1 --retries 0
+
+      - name: Run full suite with normal CI retries
+        if: matrix.scenario == 'full-suite'
+        run: npm test -- --config playwright.mini-toc.config.ts
+
+      - name: Preserve every attempt and Mini TOC trace
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini-toc-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .playwright/mini-toc/${{ matrix.scenario }}/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
