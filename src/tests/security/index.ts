@@ -4,6 +4,8 @@ import * as path from 'path';
 import {execFileSync} from 'child_process';
 import {expect, test} from '@playwright/test';
 
+import './mini-toc-diagnostics';
+
 /* eslint-disable @typescript-eslint/no-require-imports */
 // Use the YAML parser provided by the installed infra tooling.
 const yaml = require(
@@ -61,6 +63,49 @@ const unpackIdSelectedFixture = (
 };
 
 test.describe('Verification security boundaries', () => {
+    test('Windows diagnostic workflow preserves attempts without activating broader automation', () => {
+        const workflow = yaml.load(
+            fs.readFileSync(
+                path.join(__dirname, '../../../.github/workflows/mini-toc-diagnostics.yml'),
+                'utf8',
+            ),
+        );
+        expect(Object.keys(workflow.on)).toEqual(['pull_request', 'workflow_dispatch']);
+        expect(workflow.on.pull_request.branches).toEqual(['master']);
+        expect(workflow.on.pull_request.paths).toContain('src/tests/components/**');
+        expect(workflow.permissions).toEqual({contents: 'read'});
+        const job = workflow.jobs.windows;
+        expect(job['runs-on']).toBe('windows-latest');
+        expect(job.strategy).toEqual({
+            'fail-fast': false,
+            matrix: {scenario: ['navigation', 'full-suite']},
+        });
+        const repeated = job.steps.find(
+            (step: {name: string}) => step.name === 'Repeat real navigation without retries',
+        );
+        expect(repeated.run).toBe(
+            'npm test -- --config playwright.mini-toc.config.ts --grep "Components.*Mini TOC.*Navigation to" --repeat-each 50 --workers 1 --retries 0',
+        );
+        const full = job.steps.find(
+            (step: {name: string}) => step.name === 'Run full suite with normal CI retries',
+        );
+        expect(full.run).toBe('npm test -- --config playwright.mini-toc.config.ts');
+        const upload = job.steps.find(
+            (step: {uses?: string}) => step.uses === 'actions/upload-artifact@v4',
+        );
+        expect({
+            condition: upload.if,
+            path: upload.with.path,
+            hidden: upload.with['include-hidden-files'],
+            missing: upload.with['if-no-files-found'],
+        }).toEqual({
+            condition: 'always()',
+            path: '.playwright/mini-toc/${{ matrix.scenario }}/',
+            hidden: true,
+            missing: 'error',
+        });
+    });
+
     test('repository tests prefer the explicit frozen corpus and reject missing or invalid inputs', () => {
         const root = fs.realpathSync(
             fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-repository-corpus-')),

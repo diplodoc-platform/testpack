@@ -126,6 +126,9 @@ Security invariants for repository tooling:
   Keep the offscreen active-section assertion together with URL and viewport
   checks; never activate/scroll the target by hand or weaken the assertion.
   Failure diagnostics must retain the viewport, heading bounds and active hash.
+  The opt-in Windows probe also retains native observer events and first-attempt
+  traces; see MINI_TOC_DIAGNOSTICS.md. Keep the recorder behavior-neutral and
+  always upload failed-attempt evidence even when a retry passes.
 - Maintain focused adversarial tests under `src/tests/security`, imported only by
   `tests/repository.spec.ts`, not the published cross-package suites. See
   `VERIFICATION.md` for trust boundaries and remaining limitations.
