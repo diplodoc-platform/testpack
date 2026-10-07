@@ -332,6 +332,11 @@ Tests follow the structure defined in `TESTS.md`:
 - Prefer full structure assertions over partial checks
 - Use explicit IDs/selectors; avoid positional selectors
 - Wait for states, not timeouts
+- Search keyboard tests must wait for visible results, a hidden loader and input
+  focus before sending one ArrowDown. Assert the selected result is active before
+  Enter, then assert navigation to that result's exact document URL. Keep a slow
+  search-index scenario; do not replace these assertions with a general search URL,
+  repeated key presses or longer fixed waits.
 - Use helper functions for element groups
 - Follow Playwright best practices
 

@@ -237,23 +237,43 @@ test.describe('Search Suggest', () => {
             await expect(searchItems.first()).toHaveAttribute('data-qa', 'list-active-item');
         });
 
-        test('should select item with Enter key', async ({page}) => {
-            // Arrange
-            const searchInput = getSearchInput(page);
+        for (const delayed of [false, true]) {
+            const title = delayed
+                ? 'should select item with Enter key after delayed search index loading'
+                : 'should select item with Enter key';
+            test(title, async ({page, context}) => {
+                // Arrange - Exercise slow index loading without guessing readiness.
+                let delayedRequests = 0;
+                if (delayed) {
+                    await context.route('**/_search/**/*-index.js', async (route) => {
+                        delayedRequests++;
+                        await new Promise((resolve) => setTimeout(resolve, 1500));
+                        await route.continue();
+                    });
+                    await page.reload();
+                }
+                const searchInput = getSearchInput(page);
+                const firstItem = page.locator(SEARCH_SELECTORS.searchItem).first();
 
-            // Act - Type, navigate and select
-            await searchInput.click();
-            await searchInput.fill(TEST_QUERIES.VALID);
-            await page.waitForTimeout(500);
+                // Act - Select the first ready result with one ArrowDown.
+                await searchInput.click();
+                await searchInput.fill(TEST_QUERIES.VALID);
+                await expect(firstItem).toBeVisible();
+                await expect(page.locator(SEARCH_SELECTORS.searchLoader)).toBeHidden();
+                await expect(searchInput).toBeFocused();
+                await searchInput.press('ArrowDown');
+                await expect(firstItem).toHaveAttribute('data-qa', 'list-active-item');
 
-            await page.keyboard.press('ArrowDown');
-            const selectedLink = page.locator(SEARCH_SELECTORS.searchItem).first().locator('a');
-            const expectedHref = await selectedLink.getAttribute('href');
-            if (expectedHref === null) throw new Error('Selected search result has no href');
-            await page.keyboard.press('Enter');
+                const expectedHref = await firstItem.locator('a').getAttribute('href');
+                if (expectedHref === null) throw new Error('Selected search result has no href');
+                const expectedUrl = new URL(expectedHref, page.url()).href;
+                await searchInput.press('Enter');
 
-            await expect(page).toHaveURL(new URL(expectedHref, page.url()).href);
-        });
+                // Assert - Enter opens the selected document, not a search results page.
+                await expect(page).toHaveURL(expectedUrl);
+                if (delayed) expect(delayedRequests).toBeGreaterThan(0);
+            });
+        }
 
         test('should close popup with Escape key', async ({page}) => {
             // Arrange
