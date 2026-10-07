@@ -1,3 +1,5 @@
+import type {Page} from '@playwright/test';
+
 import {expect, test} from '@playwright/test';
 
 const CONTENT = {
@@ -46,6 +48,25 @@ const MINI_TOC_SECTIONS = [
     CONTENT.H2_FEEDBACK_WIDGET,
     CONTENT.H2_SIDEBAR_NAVIGATION,
 ] as const;
+
+function getMiniTocNavigation(page: Page, title: string) {
+    const section = page.locator('.dc-mini-toc__section', {
+        has: page.getByRole('link', {name: title, exact: true}),
+    });
+    const link = section.getByRole('link', {name: title, exact: true});
+    const heading = page.getByRole('heading', {name: title, exact: true});
+    return [section, link, heading] as const;
+}
+
+async function waitForMiniTocReady(page: Page) {
+    // SSR links are clickable before the heading observer is initialized.
+    // Fonts can also change whether an anchor needs scrolling.
+    await page.evaluate(async () => {
+        await document.fonts.ready;
+    });
+    const [initialSection] = getMiniTocNavigation(page, CONTENT.H2_PAGE_LAYOUT);
+    await expect(initialSection).toHaveClass(/dc-mini-toc__section_active/);
+}
 
 test.describe('Components', () => {
     test.beforeEach(async ({page}) => {
@@ -249,20 +270,79 @@ test.describe('Components', () => {
             await expect(firstSection).toHaveClass(/dc-mini-toc__section_active/);
         });
 
-        test('should update active section when clicking a link', async ({page}) => {
-            const targetLink = page.locator('.dc-mini-toc__section-link', {
-                hasText: CONTENT.H2_CONTENT_RENDERING,
+        test.afterEach(async ({page}, testInfo) => {
+            if (testInfo.status === testInfo.expectedStatus || page.isClosed()) return;
+            const state = await page.evaluate(() => {
+                const heading = document.getElementById('content-rendering');
+                return {
+                    url: location.href,
+                    viewport: {width: innerWidth, height: innerHeight},
+                    scrollY,
+                    target: heading?.getBoundingClientRect().toJSON(),
+                    active: Array.from(
+                        document.querySelectorAll('.dc-mini-toc__section_active'),
+                        (element) => element.getAttribute('data-hash'),
+                    ),
+                    fonts: document.fonts.status,
+                };
             });
-
-            await targetLink.click();
-
-            const targetSection = page.locator('.dc-mini-toc__section', {
-                has: page.locator('.dc-mini-toc__section-link', {
-                    hasText: CONTENT.H2_CONTENT_RENDERING,
-                }),
+            await testInfo.attach('mini-toc-state', {
+                body: JSON.stringify(state, null, 2),
+                contentType: 'text/plain',
             });
+        });
 
-            await expect(targetSection).toHaveClass(/dc-mini-toc__section_active/);
+        test.describe('Navigation to an offscreen heading', () => {
+            // Anchor navigation intentionally does not scroll fully visible headings.
+            // Define the scrolling scenario explicitly, independent of host fonts.
+            test.use({viewport: {width: 1280, height: 480}});
+
+            test('should update active section when clicking a link', async ({page}) => {
+                // Arrange - Wait for the real observer and verify a scroll is needed.
+                await waitForMiniTocReady(page);
+                const [targetSection, targetLink, targetHeading] = getMiniTocNavigation(
+                    page,
+                    CONTENT.H2_CONTENT_RENDERING,
+                );
+                await expect(targetHeading).not.toBeInViewport();
+                await expect(targetSection).not.toHaveClass(/dc-mini-toc__section_active/);
+
+                // Act - Use the real link; never scroll or activate the target by hand.
+                await targetLink.click();
+
+                // Assert - URL, scrolling and active-section state must all change.
+                await expect(page).toHaveURL(/#content-rendering$/);
+                await expect(targetHeading).toBeInViewport();
+                await expect(targetSection).toHaveClass(/dc-mini-toc__section_active/);
+            });
+        });
+
+        test.describe('Navigation to a visible heading', () => {
+            test.use({viewport: {width: 1280, height: 1500}});
+
+            test('should preserve scroll and active section when the target is already visible', async ({
+                page,
+            }) => {
+                // Arrange - This is the distinct no-scroll anchor-navigation contract.
+                await waitForMiniTocReady(page);
+                const [initialSection] = getMiniTocNavigation(page, CONTENT.H2_PAGE_LAYOUT);
+                const [targetSection, targetLink, targetHeading] = getMiniTocNavigation(
+                    page,
+                    CONTENT.H2_CONTENT_RENDERING,
+                );
+                await expect(targetHeading).toBeInViewport({ratio: 1});
+                const initialScroll = await page.evaluate(() => scrollY);
+
+                // Act
+                await targetLink.click();
+
+                // Assert - A hash change alone must not imply a new active section.
+                await expect(page).toHaveURL(/#content-rendering$/);
+                await expect(targetHeading).toBeInViewport({ratio: 1});
+                await expect.poll(() => page.evaluate(() => scrollY)).toBe(initialScroll);
+                await expect(initialSection).toHaveClass(/dc-mini-toc__section_active/);
+                await expect(targetSection).not.toHaveClass(/dc-mini-toc__section_active/);
+            });
         });
 
         test('should have data-hash attributes on sections', async ({page}) => {

@@ -120,6 +120,12 @@ Security invariants for repository tooling:
 - Search keyboard tests must wait for visible results and completed loading
   before sending one navigation key. Keep the delayed-index regression test;
   do not replace readiness assertions with sleeps or repeated key presses.
+- Mini TOC navigation tests must wait for fonts and the initial active section
+  before clicking SSR links. Separate offscreen scrolling from already-visible
+  anchor navigation: the client deliberately does not scroll a visible heading.
+  Keep the offscreen active-section assertion together with URL and viewport
+  checks; never activate/scroll the target by hand or weaken the assertion.
+  Failure diagnostics must retain the viewport, heading bounds and active hash.
 - Maintain focused adversarial tests under `src/tests/security`, imported only by
   `tests/repository.spec.ts`, not the published cross-package suites. See
   `VERIFICATION.md` for trust boundaries and remaining limitations.
