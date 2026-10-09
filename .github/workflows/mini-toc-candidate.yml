@@ -1,13 +1,6 @@
 name: Mini TOC source candidate on Windows
 
 on:
-  pull_request:
-    branches: [master]
-    paths:
-      - '.github/workflows/mini-toc-candidate.yml'
-      - 'scripts/mini-toc-candidate.js'
-      - 'tests/mini-toc-candidate.spec.ts'
-      - 'src/tests/security/mini-toc-candidate.ts'
   workflow_dispatch:
 
 permissions:
