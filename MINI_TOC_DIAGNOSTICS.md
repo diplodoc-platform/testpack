@@ -41,3 +41,28 @@ which disables automatic tracing so the suite can trace Mini TOC explicitly.
 
 This is diagnostic CI, not dependency verification, distribution approval or an
 Arcadia trigger. Retire or narrow the probe after the cause is established.
+
+## Source candidate before publication
+
+`mini-toc-candidate.yml` is a separately pinned source pilot. It builds the
+metapackage at c19d631426f723c23ff6c84b01a2fbfc6ac4aded with merged components
+aa06fd1fe9d67483835759f57a85f910126d4e19 on an isolated Ubuntu runner. The source
+CLI builds HTML and Markdown. Source maps bind the exact compiled selector to
+the client bundle referenced by the Components document; workspace resolution,
+source revisions, the workspace lock and full HTML inventory are retained.
+
+Two Windows runners download that exact producer artifact by ID, verify its
+inventory and source pins, and serve it without an npm CLI rebuild or server
+reuse. A separate browser identity check hashes the actual loaded HTTP response
+containing the selector. Its report has separate paths so the following
+navigation/full-suite run cannot overwrite that evidence. Navigation repeats
+each of the two real scenarios 50 times without retries. Full-suite retries
+remain unchanged and Mini TOC first-attempt JSON/traces are retained.
+
+The pilot is path-scoped to its own tooling and supports manual dispatch after
+the workflow is on master. Update both reviewed source pins explicitly for a
+new candidate; it never selects moving branches or publishes packages. The
+original diagnostic workflow still checks the published CLI, so rerunning it
+alone does not validate an unpublished components fix. Keep PR 38 unmerged
+until the candidate evidence is reviewed; green source checks do not authorize
+the components/client/CLI release chain, distribution or Arcadia execution.

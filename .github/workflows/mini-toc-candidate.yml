@@ -1,0 +1,144 @@
+name: Mini TOC source candidate on Windows
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - '.github/workflows/mini-toc-candidate.yml'
+      - 'scripts/mini-toc-candidate.js'
+      - 'tests/mini-toc-candidate.spec.ts'
+      - 'src/tests/security/mini-toc-candidate.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Explicit, reviewed source pins for the pre-release components pilot.
+# This workflow never publishes packages or changes repository pointers.
+env:
+  METAPACKAGE_SHA: c19d631426f723c23ff6c84b01a2fbfc6ac4aded
+  COMPONENTS_SHA: aa06fd1fe9d67483835759f57a85f910126d4e19
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    outputs:
+      artifact-id: ${{ steps.corpus.outputs.artifact-id }}
+    env:
+      NX_DAEMON: 'false'
+    steps:
+      - name: Checkout diagnostic tools
+        uses: actions/checkout@v5
+        with:
+          path: tools/testpack
+          persist-credentials: false
+      - name: Checkout pinned metapackage
+        uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/diplodoc
+          ref: ${{ env.METAPACKAGE_SHA }}
+          path: metapackage
+          submodules: recursive
+          persist-credentials: false
+      - name: Checkout pinned components candidate
+        uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/components
+          ref: ${{ env.COMPONENTS_SHA }}
+          path: candidate-components
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Inject exact components commit in isolated checkout
+        run: |
+          git -C metapackage/packages/components fetch "$GITHUB_WORKSPACE/candidate-components" "$COMPONENTS_SHA"
+          git -C metapackage/packages/components checkout --detach "$COMPONENTS_SHA"
+      - name: Resolve candidate workspace lock and install
+        working-directory: metapackage
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          npm ci
+          npm run reset -- -q
+      - name: Build source dependency graph without cached outputs
+        working-directory: metapackage
+        run: npm run build -- --skip-nx-cache
+      - name: Build corpus with source CLI, not npm CLI
+        working-directory: metapackage/devops/testpack
+        run: |
+          node ../../packages/cli/build/index.js build -i docs/input -o "$GITHUB_WORKSPACE/artifacts/html/output" --output-format html
+          node ../../packages/cli/build/index.js build -i docs/input -o "$GITHUB_WORKSPACE/artifacts/md/output" --output-format md
+      - name: Bind components source, client bundle and corpus
+        env:
+          METAPACKAGE_ROOT: ${{ github.workspace }}/metapackage
+          CORPUS_ROOT: ${{ github.workspace }}/artifacts
+        run: node tools/testpack/scripts/mini-toc-candidate.js record
+      - name: Upload immutable corpus and source proof
+        id: corpus
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini-toc-source-corpus-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
+
+  windows:
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        scenario: [navigation, full-suite]
+    env:
+      MINI_TOC_DIAGNOSTICS: '1'
+      MINI_TOC_SCENARIO: ${{ matrix.scenario }}
+    steps:
+      - name: Checkout diagnostic tools
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Setup Node.js and install dependencies
+        uses: diplodoc-platform/setup-node-action@v1
+        with:
+          node-version: '24'
+      - name: Download corpus from the exact producer
+        uses: actions/download-artifact@v4
+        with:
+          artifact-ids: ${{ needs.build.outputs.artifact-id }}
+          merge-multiple: true
+          path: candidate-corpus
+      - name: Build diagnostic server
+        run: npm run build
+      - name: Install Chromium for direct Playwright invocation
+        run: npx playwright install chromium
+      - name: Verify frozen corpus and prepare browser configuration
+        shell: bash
+        run: |
+          export TESTPACK_ROOT="$GITHUB_WORKSPACE"
+          export CANDIDATE_CORPUS="$GITHUB_WORKSPACE/candidate-corpus/html/output"
+          export CANDIDATE_PROOF="$GITHUB_WORKSPACE/candidate-corpus/source-proof.json"
+          export BROWSER_ARTIFACTS="$GITHUB_WORKSPACE/.playwright/mini-toc/$MINI_TOC_SCENARIO"
+          node scripts/mini-toc-candidate.js browser
+          echo "CANDIDATE_CORPUS=$CANDIDATE_CORPUS" >> "$GITHUB_ENV"
+          echo "CANDIDATE_PROOF=$CANDIDATE_PROOF" >> "$GITHUB_ENV"
+      - name: Verify browser actually loads the candidate bundle
+        run: npx playwright test --config .playwright/mini-toc/${{ matrix.scenario }}/candidate-identity.config.ts --retries 0
+      - name: Repeat real navigation without retries
+        if: matrix.scenario == 'navigation'
+        run: npx playwright test --config .playwright/mini-toc/navigation/candidate-playwright.config.ts --grep "Components.*Mini TOC.*Navigation to" --repeat-each 50 --workers 1 --retries 0
+      - name: Run full suite with normal CI retries
+        if: matrix.scenario == 'full-suite'
+        run: npx playwright test --config .playwright/mini-toc/full-suite/candidate-playwright.config.ts
+      - name: Preserve corpus identity and every attempt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mini-toc-candidate-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .playwright/mini-toc/${{ matrix.scenario }}/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 7
