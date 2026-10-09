@@ -1,4 +1,4 @@
-import type {Page} from '@playwright/test';
+import type {Page, TestInfo} from '@playwright/test';
 
 type DiagnosticEvent = {
     kind: string;
@@ -20,11 +20,17 @@ type DiagnosticWindow = Window & {
  * @returns {void} Installs a bounded recorder in the current document.
  */
 export function recordMiniTocEvents() {
+    // Retain the beginning of hydration, even when later scroll events are noisy.
     const diagnosticWindow = window as DiagnosticWindow;
     if (diagnosticWindow.__diplodocMiniToc) return;
     const state = {events: [] as DiagnosticEvent[], droppedEvents: 0};
     diagnosticWindow.__diplodocMiniToc = state;
     const record = (kind: string, details: unknown) => {
+        if (state.events.length >= 500) {
+            state.droppedEvents++;
+            return;
+        }
+
         state.events.push({
             kind,
             time: performance.now(),
@@ -35,11 +41,9 @@ export function recordMiniTocEvents() {
             ),
             details,
         });
-        if (state.events.length > 500) {
-            state.events.shift();
-            state.droppedEvents++;
-        }
     };
+
+    // Observe native callback delivery without replacing entries or their order.
     const NativeObserver = window.IntersectionObserver;
     let observerId = 0;
     window.IntersectionObserver = class extends NativeObserver {
@@ -49,6 +53,7 @@ export function recordMiniTocEvents() {
                 typeof callback === 'function'
                     ? function (this: IntersectionObserver, entries, observer) {
                           record('intersection', {
+                              phase: 'before-callback',
                               observer: id,
                               entries: entries.map((entry) => ({
                                   id: entry.target.id,
@@ -59,7 +64,8 @@ export function recordMiniTocEvents() {
                                   root: entry.rootBounds?.toJSON(),
                               })),
                           });
-                          // Pass the exact native entries and observer to the original callback.
+                          // `active` is the pre-callback snapshot; React's later DOM
+                          // updates are recorded as separate active-class-change events.
                           callback.call(this, entries, observer);
                       }
                     : callback,
@@ -72,6 +78,8 @@ export function recordMiniTocEvents() {
             });
         }
     };
+
+    // Correlate observer delivery with real navigation and rendering events.
     for (const name of ['click', 'focusin']) {
         document.addEventListener(
             name,
@@ -140,4 +148,58 @@ export async function readMiniTocDiagnostics(page: Page) {
         fonts: document.fonts.status,
         events: (window as DiagnosticWindow).__diplodocMiniToc ?? null,
     }));
+}
+
+type DiagnosticCapture = {
+    readState: () => Promise<unknown>;
+    stopTrace?: () => Promise<string>;
+    attach: TestInfo['attach'];
+};
+
+/**
+ * Retain capture failures separately without changing the test's assertion outcome.
+ * @param {DiagnosticCapture} capture Independent state and trace collectors.
+ * @returns {Promise<void>} Resolves even when diagnostic collection fails.
+ */
+export async function captureMiniTocDiagnostics(capture: DiagnosticCapture) {
+    const errors: {phase: string; message: string}[] = [];
+    const describeError = (error: unknown) =>
+        error instanceof Error ? error.message : String(error);
+
+    // A lost page execution context must not prevent the trace from being saved.
+    try {
+        const state = await capture.readState();
+        await capture.attach('mini-toc-state', {
+            body: JSON.stringify(state, null, 2),
+            contentType: 'application/json',
+        });
+    } catch (error) {
+        errors.push({phase: 'state', message: describeError(error)});
+    }
+
+    if (capture.stopTrace) {
+        try {
+            const trace = await capture.stopTrace();
+            await capture.attach('mini-toc-trace', {path: trace, contentType: 'application/zip'});
+        } catch (error) {
+            errors.push({phase: 'trace', message: describeError(error)});
+        }
+    }
+
+    // Missing diagnostics are explicit incomplete evidence, never a product failure.
+    if (errors.length > 0) {
+        try {
+            await capture.attach('mini-toc-diagnostic-error', {
+                body: JSON.stringify({errors}, null, 2),
+                contentType: 'application/json',
+            });
+        } catch (error) {
+            // The attachment channel itself failed; retain the capture error in CI logs.
+            // eslint-disable-next-line no-console
+            console.error('Mini TOC diagnostic attachment failed', {
+                errors,
+                error: describeError(error),
+            });
+        }
+    }
 }

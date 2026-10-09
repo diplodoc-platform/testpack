@@ -17,14 +17,32 @@ dependency-verification workflows remain unchanged.
 `MINI_TOC_DIAGNOSTICS=1` installs a recorder before Mini TOC page navigation.
 The recorder forwards the original native observer entries, observer and options
 unchanged. It records callback batches, focus/click/scroll events and active-class
-changes. It neither activates a heading nor scrolls the page. The event ring is
-bounded to 500 entries and reports any dropped entries.
+changes. It neither activates a heading nor scrolls the page. The recorder keeps
+the first 500 events without evicting the initial observer batches. Later events
+are counted in `droppedEvents` and omitted before querying active DOM state.
+An intersection event's `active` is the **pre-callback** snapshot, explicitly
+marked `phase: before-callback`; later React DOM updates appear as separate
+`active-class-change` events. The final state attachment reads current active
+hashes independently of the bounded history.
 
 Every Mini TOC attempt, including failures followed by a successful retry, gets
 a JSON attachment with viewport, fonts, heading geometry, active hashes and
 event history. Mini TOC traces are enabled from the first attempt only in this
 opt-in mode. Always-upload artifacts contain separate JSON/HTML reports and test
 outputs for each job; screenshots cannot be updated.
+
+If state capture or trace saving fails, `mini-toc-diagnostic-error` records the
+failed phase and message independently of the other collector. Capture failures
+do not change the assertion outcome or hide an assertion failure. A green test
+with this attachment, missing JSON/trace or dropped events is **incomplete
+diagnostic evidence**, not proof of a clean observer history. Inspect attachment
+completeness for every attempt before drawing a stability conclusion.
+
+GitHub artifact retention is **seven days**, not permanent. Historical run logs
+and conclusions remain separate from these expiring JSON/trace/corpus artifacts.
+Before expiry, download any evidence needed for later review, record the source
+inputs, run/job IDs, producer artifact IDs and ZIP SHA-256 digests, and keep it in
+a durable archive outside the Git repository. Do not delete failed run history.
 
 For a local targeted check:
 
@@ -48,10 +66,24 @@ Arcadia trigger. Retire or narrow the probe after the cause is established.
 
 ## Source candidate before publication
 
-`mini-toc-candidate.yml` is a separately pinned source pilot. It builds the
-metapackage at c19d631426f723c23ff6c84b01a2fbfc6ac4aded with merged components
-aa06fd1fe9d67483835759f57a85f910126d4e19 on an isolated Ubuntu runner. The source
-CLI builds HTML and Markdown. Source maps bind the exact compiled selector to
+`mini-toc-candidate.yml` requires two manual inputs: `metapackage-sha` and
+`components-sha`, each a reviewed full lowercase 40-character commit SHA in its
+respective Diplodoc repository. Branch names and shortened hashes are rejected
+before source checkout. The inputs are frozen for all jobs in one run; there
+are no historical source hashes hardcoded in the workflow.
+
+On an isolated Ubuntu runner, the selected components commit is injected into
+the selected metapackage checkout and the source CLI builds HTML and Markdown.
+This does **not** require Update Submodules or mutate a metapackage pointer.
+Update Submodules is a different operation that changes the metapackage's saved
+repository state; do not run it merely to launch this diagnostic probe.
+
+`tools/testpack` contains the diagnostic scripts from the chosen testpack
+workflow revision. It is separate from `metapackage/devops/testpack`, whose
+fixtures are frozen by the selected metapackage commit. This prevents an old
+fixture checkout from replacing the current proof tooling.
+
+Source maps bind the exact compiled selector to
 the client bundle referenced by the Components document; workspace resolution,
 source revisions, the workspace lock and full HTML inventory are retained.
 
@@ -63,11 +95,13 @@ navigation/full-suite run cannot overwrite that evidence. Navigation repeats
 each of the two real scenarios 50 times without retries. Full-suite retries
 remain unchanged and Mini TOC first-attempt JSON/traces are retained.
 
-This is a reproducible historical pilot, not an automatic check of the latest
-components. Keep both reviewed source pins explicit. To test a different
-candidate, update and review the pins in a separate PR before manually running
-the new workflow revision; it never selects moving source branches or publishes
-packages. The original diagnostic workflow still checks the published CLI, so
+This is an explicit source probe, not an automatic check of the latest components.
+Review both source commits before supplying the inputs; testing a new candidate
+does not require editing YAML. The workflow never selects moving source branches
+or publishes packages. All setup steps use the shared
+`vars.NODE_VERSION || '24'` convention; the source producer skips root install
+and lockfile cache, then explicitly installs inside the injected workspace.
+The original diagnostic workflow still checks the published CLI, so
 rerunning it alone does not validate an unpublished components fix.
 
 The pre-merge source pilot
@@ -77,7 +111,11 @@ with four existing skips, zero failed/flaky/retried attempts. Both browser
 identity checks and all 111 Mini TOC JSON/trace pairs were verified. The
 separate published-client control still reproduced the old bug. These results
 do not authorize the components/client/CLI release chain, distribution or
-Arcadia execution. Failed historical runs must remain available as evidence.
+Arcadia execution. That run used metapackage
+c19d631426f723c23ff6c84b01a2fbfc6ac4aded and components
+aa06fd1fe9d67483835759f57a85f910126d4e19; these are historical evidence inputs,
+not defaults for future checks. Its downloaded JSON/trace archives are retained
+separately from the expiring GitHub artifacts.
 
 ## Manual hosted runs
 
@@ -90,8 +128,10 @@ revision, the equivalent commands are:
 # Published CLI control: useful for checking whether a release propagated.
 gh workflow run mini-toc-diagnostics.yml --repo diplodoc-platform/testpack --ref master
 
-# Exact source candidate: uses the reviewed historical pins documented above.
-gh workflow run mini-toc-candidate.yml --repo diplodoc-platform/testpack --ref master
+# Exact source candidate: supply the two full, reviewed commit SHAs.
+gh workflow run mini-toc-candidate.yml --repo diplodoc-platform/testpack --ref master \
+  --field metapackage-sha="$reviewed_metapackage_sha" \
+  --field components-sha="$reviewed_components_sha"
 ```
 
 Run only the probe needed for the current question; each starts two heavy

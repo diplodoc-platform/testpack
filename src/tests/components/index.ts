@@ -2,7 +2,11 @@ import type {Page} from '@playwright/test';
 
 import {expect, test} from '@playwright/test';
 
-import {installMiniTocDiagnostics, readMiniTocDiagnostics} from './mini-toc-diagnostics';
+import {
+    captureMiniTocDiagnostics,
+    installMiniTocDiagnostics,
+    readMiniTocDiagnostics,
+} from './mini-toc-diagnostics';
 
 const miniTocDiagnostics = process.env.MINI_TOC_DIAGNOSTICS === '1';
 
@@ -279,24 +283,27 @@ test.describe('Components', () => {
         });
 
         test.afterEach(async ({page, context}, testInfo) => {
-            try {
-                if (page.isClosed()) return;
-                if (!miniTocDiagnostics && testInfo.status === testInfo.expectedStatus) return;
-                const state = await readMiniTocDiagnostics(page);
-                await testInfo.attach('mini-toc-state', {
-                    body: JSON.stringify(state, null, 2),
-                    contentType: 'application/json',
-                });
-            } finally {
-                if (miniTocDiagnostics) {
-                    const trace = testInfo.outputPath('mini-toc-trace.zip');
-                    await context.tracing.stop({path: trace});
-                    await testInfo.attach('mini-toc-trace', {
-                        path: trace,
-                        contentType: 'application/zip',
-                    });
-                }
-            }
+            if (
+                !miniTocDiagnostics &&
+                (page.isClosed() || testInfo.status === testInfo.expectedStatus)
+            )
+                return;
+
+            // Capture problems are attached separately; assertions keep their real status.
+            await captureMiniTocDiagnostics({
+                readState: async () => {
+                    if (page.isClosed()) throw new Error('Page closed before state capture');
+                    return readMiniTocDiagnostics(page);
+                },
+                attach: (name, options) => testInfo.attach(name, options),
+                stopTrace: miniTocDiagnostics
+                    ? async () => {
+                          const trace = testInfo.outputPath('mini-toc-trace.zip');
+                          await context.tracing.stop({path: trace});
+                          return trace;
+                      }
+                    : undefined,
+            });
         });
 
         test.describe('Navigation to an offscreen heading', () => {
