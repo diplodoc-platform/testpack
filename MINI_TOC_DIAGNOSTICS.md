@@ -4,8 +4,12 @@ This opt-in probe investigates the Windows active-heading flake. It does not
 change client code, assertions, screenshots or normal Quality retry settings.
 The infra-generated Quality workflow is intentionally unchanged.
 
-`mini-toc-diagnostics.yml` runs on relevant pull requests and manual dispatch,
-never on a schedule or on every dependency PR. Two isolated Windows jobs run:
+Both diagnostic workflows are manual-only (`workflow_dispatch`). Neither runs
+on pull requests, pushes, schedules or dependency updates. They are opt-in
+investigation tools, not required automatic PR checks. The normal Quality and
+dependency-verification workflows remain unchanged.
+
+`mini-toc-diagnostics.yml` checks the published CLI. Two isolated Windows jobs run:
 
 - 50 repetitions of each real navigation scenario, with one worker and no retry;
 - the full suite with the normal CI retries, to retain the original workload.
@@ -59,10 +63,38 @@ navigation/full-suite run cannot overwrite that evidence. Navigation repeats
 each of the two real scenarios 50 times without retries. Full-suite retries
 remain unchanged and Mini TOC first-attempt JSON/traces are retained.
 
-The pilot is path-scoped to its own tooling and supports manual dispatch after
-the workflow is on master. Update both reviewed source pins explicitly for a
-new candidate; it never selects moving branches or publishes packages. The
-original diagnostic workflow still checks the published CLI, so rerunning it
-alone does not validate an unpublished components fix. Keep PR 38 unmerged
-until the candidate evidence is reviewed; green source checks do not authorize
-the components/client/CLI release chain, distribution or Arcadia execution.
+This is a reproducible historical pilot, not an automatic check of the latest
+components. Keep both reviewed source pins explicit. To test a different
+candidate, update and review the pins in a separate PR before manually running
+the new workflow revision; it never selects moving source branches or publishes
+packages. The original diagnostic workflow still checks the published CLI, so
+rerunning it alone does not validate an unpublished components fix.
+
+The pre-merge source pilot
+[37925878441](https://github.com/diplodoc-platform/testpack/actions/runs/37925878441)
+passed 100 navigation repetitions without retries and 1566 full-suite tests
+with four existing skips, zero failed/flaky/retried attempts. Both browser
+identity checks and all 111 Mini TOC JSON/trace pairs were verified. The
+separate published-client control still reproduced the old bug. These results
+do not authorize the components/client/CLI release chain, distribution or
+Arcadia execution. Failed historical runs must remain available as evidence.
+
+## Manual hosted runs
+
+GitHub registers a manually dispatchable workflow after its file reaches the
+default branch. After merging, use Actions → select one of the two diagnostic
+workflows → Run workflow → choose the reviewed branch. For the approved master
+revision, the equivalent commands are:
+
+```sh
+# Published CLI control: useful for checking whether a release propagated.
+gh workflow run mini-toc-diagnostics.yml --repo diplodoc-platform/testpack --ref master
+
+# Exact source candidate: uses the reviewed historical pins documented above.
+gh workflow run mini-toc-candidate.yml --repo diplodoc-platform/testpack --ref master
+```
+
+Run only the probe needed for the current question; each starts two heavy
+Windows suites, and the source pilot additionally builds the workspace graph.
+Inspect attempt-zero JSON/traces and actual candidate identity, not just the
+green badge. No manual run publishes packages or changes repository pointers.

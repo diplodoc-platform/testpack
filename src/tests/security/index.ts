@@ -64,16 +64,14 @@ const unpackIdSelectedFixture = (
 };
 
 test.describe('Verification security boundaries', () => {
-    test('Windows diagnostic workflow preserves attempts without activating broader automation', () => {
+    test('Windows diagnostic workflow is manual-only and preserves every attempt', () => {
         const workflow = yaml.load(
             fs.readFileSync(
                 path.join(__dirname, '../../../.github/workflows/mini-toc-diagnostics.yml'),
                 'utf8',
             ),
         );
-        expect(Object.keys(workflow.on)).toEqual(['pull_request', 'workflow_dispatch']);
-        expect(workflow.on.pull_request.branches).toEqual(['master']);
-        expect(workflow.on.pull_request.paths).toContain('src/tests/components/**');
+        expect(workflow.on).toEqual({workflow_dispatch: null});
         expect(workflow.permissions).toEqual({contents: 'read'});
         const job = workflow.jobs.windows;
         expect(job['runs-on']).toBe('windows-latest');

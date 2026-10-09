@@ -141,14 +141,14 @@ test.describe('Mini TOC source candidate boundaries', () => {
         }
     });
 
-    test('isolates source builds from Windows and binds the artifact producer', () => {
+    test('keeps source probes manual-only and binds the isolated artifact producer', () => {
         const workflow = yaml.load(
             fs.readFileSync(
                 path.join(__dirname, '../../../.github/workflows/mini-toc-candidate.yml'),
                 'utf8',
             ),
         );
-        expect(Object.keys(workflow.on)).toEqual(['pull_request', 'workflow_dispatch']);
+        expect(workflow.on).toEqual({workflow_dispatch: null});
         expect(workflow.permissions).toEqual({contents: 'read'});
         validatePins(workflow.env);
         expect(workflow.jobs.build['runs-on']).toBe('ubuntu-24.04');
