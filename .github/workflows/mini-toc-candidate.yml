@@ -77,6 +77,7 @@ jobs:
         run: node tools/testpack/scripts/mini-toc-candidate.js record
       - name: Upload immutable corpus and source proof
         id: corpus
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: mini-toc-source-corpus-${{ github.run_id }}-${{ github.run_attempt }}

@@ -37,6 +37,7 @@ function findBundleProof(clientRoot, compiledSelector, htmlRoot) {
     const scripts = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map((match) => match[1]);
     const files = inventoryCorpus(htmlRoot);
     const bundles = [];
+    const candidates = [];
     for (const name of fs.readdirSync(clientRoot).sort()) {
         if (!name.endsWith('.js.map')) continue;
         const mapPath = path.join(clientRoot, name);
@@ -53,7 +54,11 @@ function findBundleProof(clientRoot, compiledSelector, htmlRoot) {
         const served = files.filter(
             (file) => file.sha256 === sha256 && scripts.includes(file.path),
         );
-        assert.ok(served.length > 0, 'Candidate bundle is not referenced by the Components page');
+        candidates.push({
+            jsName,
+            sha256,
+            matchingFiles: files.filter((file) => file.sha256 === sha256).map((file) => file.path),
+        });
         for (const file of served)
             bundles.push({
                 path: file.path,
@@ -62,7 +67,10 @@ function findBundleProof(clientRoot, compiledSelector, htmlRoot) {
                 mapSha256: digest(fs.readFileSync(mapPath)),
             });
     }
-    assert.ok(bundles.length > 0, 'No candidate selector in served client source maps');
+    assert.ok(
+        bundles.length > 0,
+        `No candidate selector in served client source maps; bundles not referenced: ${JSON.stringify({candidates, scripts})}`,
+    );
     return bundles;
 }
 
@@ -108,6 +116,14 @@ function recordProof(env) {
     );
     const htmlRoot = path.join(corpus, 'html/output');
     const htmlFiles = inventoryCorpus(htmlRoot);
+    // Keep the exact build inputs needed to diagnose a failed binding, too.
+    const debug = path.join(corpus, 'proof');
+    fs.mkdirSync(debug);
+    fs.copyFileSync(compiled, path.join(debug, 'selectIntersectingHeading.js'));
+    fs.copyFileSync(`${compiled}.map`, path.join(debug, 'selectIntersectingHeading.js.map'));
+    for (const name of fs.readdirSync(path.join(client, 'build/client')))
+        if (name.endsWith('.js') || name.endsWith('.js.map'))
+            fs.copyFileSync(path.join(client, 'build/client', name), path.join(debug, name));
     const proof = {
         metapackageSha: env.METAPACKAGE_SHA,
         componentsSha: env.COMPONENTS_SHA,

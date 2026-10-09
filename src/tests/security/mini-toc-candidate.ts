@@ -56,6 +56,11 @@ test.describe('Mini TOC source candidate boundaries', () => {
             const bundles = findBundleProof(client, compiled, html);
             expect(bundles).toHaveLength(1);
             expect(bundles[0].path).toBe('_bundle/app.js');
+            // Another runtime can contain the same selector without being
+            // loaded by this page. It must not hide the valid served bundle.
+            fs.writeFileSync(path.join(client, '0-async.js'), 'other runtime');
+            fs.writeFileSync(path.join(client, '0-async.js.map'), JSON.stringify(sourceMap));
+            expect(findBundleProof(client, compiled, html)).toEqual(bundles);
             fs.writeFileSync(page, '<script src="_bundle/old.js"></script>');
             expect(() => findBundleProof(client, compiled, html)).toThrow('not referenced');
             fs.writeFileSync(page, '<script src="_bundle/app.js"></script>');
