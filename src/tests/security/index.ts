@@ -5,6 +5,7 @@ import {execFileSync} from 'child_process';
 import {expect, test} from '@playwright/test';
 
 import './mini-toc-diagnostics';
+import './mini-toc-candidate';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 // Use the YAML parser provided by the installed infra tooling.
