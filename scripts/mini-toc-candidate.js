@@ -32,12 +32,15 @@ function validatePins(env) {
  * @returns {Array<object>} Bundles referenced by the Components document
  */
 function findBundleProof(clientRoot, compiledSelector, htmlRoot) {
+    // Inventory the page's runtime references independently of the source maps.
     const expected = fs.readFileSync(compiledSelector, 'utf8');
     const html = fs.readFileSync(path.join(htmlRoot, 'ru/syntax/components.html'), 'utf8');
     const scripts = [...html.matchAll(/<script\b[^>]*\bsrc="([^"]+)"/g)].map((match) => match[1]);
     const files = inventoryCorpus(htmlRoot);
     const bundles = [];
     const candidates = [];
+
+    // Match exact compiled selector text, bundle bytes and a real script reference.
     for (const name of fs.readdirSync(clientRoot).sort()) {
         if (!name.endsWith('.js.map')) continue;
         const mapPath = path.join(clientRoot, name);
@@ -80,6 +83,7 @@ function findBundleProof(clientRoot, compiledSelector, htmlRoot) {
  * @returns {Object} Recorded proof
  */
 function recordProof(env) {
+    // Validate source identities and workspace resolution before trusting outputs.
     validatePins(env);
     const root = fs.realpathSync(env.METAPACKAGE_ROOT);
     const corpus = fs.realpathSync(env.CORPUS_ROOT);
@@ -102,6 +106,8 @@ function recordProof(env) {
         fs.realpathSync(cliRequire.resolve('@diplodoc/client/manifest')),
         path.join(client, 'build/client/manifest.json'),
     );
+
+    // Bind the reviewed TypeScript selector to its freshly compiled module.
     const selector = 'src/components/SubNavigation/hooks/selectIntersectingHeading.ts';
     const compiled = path.join(
         components,
@@ -116,6 +122,7 @@ function recordProof(env) {
     );
     const htmlRoot = path.join(corpus, 'html/output');
     const htmlFiles = inventoryCorpus(htmlRoot);
+
     // Keep the exact build inputs needed to diagnose a failed binding, too.
     const debug = path.join(corpus, 'proof');
     fs.mkdirSync(debug);
@@ -124,6 +131,8 @@ function recordProof(env) {
     for (const name of fs.readdirSync(path.join(client, 'build/client')))
         if (name.endsWith('.js') || name.endsWith('.js.map'))
             fs.copyFileSync(path.join(client, 'build/client', name), path.join(debug, name));
+
+    // Write replayable source, runtime and complete corpus identities.
     const proof = {
         metapackageSha: env.METAPACKAGE_SHA,
         componentsSha: env.COMPONENTS_SHA,
@@ -149,12 +158,15 @@ function recordProof(env) {
  * @returns {Object} Browser configuration and evidence
  */
 function prepareCandidateBrowser(env) {
+    // Reject foreign source pins before inspecting the downloaded corpus.
     validatePins(env);
     if (!path.isAbsolute(env.CANDIDATE_PROOF || ''))
         throw new Error('Missing absolute CANDIDATE_PROOF');
     const proof = JSON.parse(fs.readFileSync(env.CANDIDATE_PROOF, 'utf8'));
     assert.equal(proof.componentsSha, env.COMPONENTS_SHA);
     assert.equal(proof.metapackageSha, env.METAPACKAGE_SHA);
+
+    // Require complete producer/consumer inventory equality before starting a server.
     const prepared = prepareBrowser({...env, PR_SHA: env.COMPONENTS_SHA});
     assert.deepEqual(
         prepared.evidence.files,
@@ -174,8 +186,11 @@ function prepareCandidateBrowser(env) {
 }
 
 function main(command, env = process.env) {
+    if (command === 'validate') return validatePins(env);
     if (command === 'record') return recordProof(env);
-    if (command !== 'browser') throw new Error('Expected record or browser command');
+    if (command !== 'browser') throw new Error('Expected validate, record or browser command');
+
+    // Preserve source proof separately from reports produced by browser attempts.
     const {proof, prepared} = prepareCandidateBrowser(env);
     const output = env.BROWSER_ARTIFACTS;
     fs.mkdirSync(output, {recursive: true});
@@ -187,6 +202,8 @@ function main(command, env = process.env) {
         JSON.stringify(prepared.evidence, null, 2),
         {flag: 'wx'},
     );
+
+    // Serve the frozen corpus; do not rebuild documentation with published packages.
     const overrides = {
         testDir: prepared.config.testDir,
         outputDir: path.join(output, 'results'),
@@ -199,6 +216,8 @@ function main(command, env = process.env) {
             `export default {...base, ...${JSON.stringify(overrides)}};\n`,
         {flag: 'wx'},
     );
+
+    // The bundle identity step must not share report/output paths with the suite.
     const identity = {
         ...overrides,
         testMatch: 'mini-toc-candidate.spec.ts',

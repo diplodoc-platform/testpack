@@ -24,7 +24,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: ${{ vars.NODE_VERSION || '24' }}
       - name: Checkout trusted scope tools
         uses: actions/checkout@v5
         with:
@@ -68,7 +68,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: ${{ vars.NODE_VERSION || '24' }}
       - name: Checkout baseline package
         uses: actions/checkout@v5
         with:
@@ -118,7 +118,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: ${{ vars.NODE_VERSION || '24' }}
       - name: Checkout candidate package
         uses: actions/checkout@v5
         with:
@@ -188,7 +188,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: ${{ vars.NODE_VERSION || '24' }}
       - name: Download immutable baseline evidence
         uses: actions/download-artifact@v4
         with:

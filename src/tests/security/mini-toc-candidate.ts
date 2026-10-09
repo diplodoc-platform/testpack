@@ -23,6 +23,7 @@ test.describe('Mini TOC source candidate boundaries', () => {
     test('requires full immutable revisions', () => {
         const pins = {METAPACKAGE_SHA: 'a'.repeat(40), COMPONENTS_SHA: 'b'.repeat(40)};
         expect(() => validatePins(pins)).not.toThrow();
+        expect(() => main('validate', pins)).not.toThrow();
         for (const value of ['', 'master', 'a'.repeat(39), '../other'])
             expect(() => validatePins({...pins, COMPONENTS_SHA: value})).toThrow(
                 'Invalid COMPONENTS_SHA',
@@ -34,6 +35,7 @@ test.describe('Mini TOC source candidate boundaries', () => {
             fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-selector-proof-')),
         );
         try {
+            // Arrange a source map, compiled selector and independently served corpus.
             const client = path.join(root, 'client');
             const html = path.join(root, 'html');
             const compiled = path.join(root, 'selectIntersectingHeading.js');
@@ -53,6 +55,8 @@ test.describe('Mini TOC source candidate boundaries', () => {
             fs.writeFileSync(mapPath, JSON.stringify(sourceMap));
             const page = path.join(html, 'ru/syntax/components.html');
             fs.writeFileSync(page, '<script src="_bundle/app.js"></script>');
+
+            // Accept only exact bytes in a runtime referenced by this document.
             const bundles = findBundleProof(client, compiled, html);
             expect(bundles).toHaveLength(1);
             expect(bundles[0].path).toBe('_bundle/app.js');
@@ -61,6 +65,8 @@ test.describe('Mini TOC source candidate boundaries', () => {
             fs.writeFileSync(path.join(client, '0-async.js'), 'other runtime');
             fs.writeFileSync(path.join(client, '0-async.js.map'), JSON.stringify(sourceMap));
             expect(findBundleProof(client, compiled, html)).toEqual(bundles);
+
+            // Reject missing references, old bytes and foreign or absent selector text.
             fs.writeFileSync(page, '<script src="_bundle/old.js"></script>');
             expect(() => findBundleProof(client, compiled, html)).toThrow('not referenced');
             fs.writeFileSync(page, '<script src="_bundle/app.js"></script>');
@@ -84,6 +90,7 @@ test.describe('Mini TOC source candidate boundaries', () => {
             fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-candidate-download-')),
         );
         try {
+            // Arrange producer evidence with hidden corpus files included.
             const corpus = path.join(root, 'corpus');
             fs.mkdirSync(corpus);
             fs.mkdirSync(path.join(root, 'build/server'), {recursive: true});
@@ -109,6 +116,8 @@ test.describe('Mini TOC source candidate boundaries', () => {
                 CANDIDATE_CORPUS: corpus,
                 BROWSER_ARTIFACTS: path.join(root, 'evidence'),
             };
+
+            // Separate suite outputs from identity proof; serve only the frozen corpus.
             expect(prepareCandidateBrowser(env).prepared.config.webServer.reuseExistingServer).toBe(
                 false,
             );
@@ -128,6 +137,8 @@ test.describe('Mini TOC source candidate boundaries', () => {
             expect(identityConfig).toContain(
                 JSON.stringify(path.join(env.BROWSER_ARTIFACTS, 'identity-results')),
             );
+
+            // Reject altered source revisions and an incomplete artifact download.
             expect(identityConfig).toContain(
                 JSON.stringify(path.join(env.BROWSER_ARTIFACTS, 'identity-results.json')),
             );
@@ -148,10 +159,51 @@ test.describe('Mini TOC source candidate boundaries', () => {
                 'utf8',
             ),
         );
-        expect(workflow.on).toEqual({workflow_dispatch: null});
+        // Manual inputs replace historical YAML pins without permitting moving refs.
+        expect(workflow.on).toEqual({
+            workflow_dispatch: {
+                inputs: {
+                    'metapackage-sha': {
+                        description: expect.any(String),
+                        required: true,
+                        type: 'string',
+                    },
+                    'components-sha': {
+                        description: expect.any(String),
+                        required: true,
+                        type: 'string',
+                    },
+                },
+            },
+        });
         expect(workflow.permissions).toEqual({contents: 'read'});
-        validatePins(workflow.env);
+        expect(workflow.env).toEqual({
+            METAPACKAGE_SHA: '${{ inputs.metapackage-sha }}',
+            COMPONENTS_SHA: '${{ inputs.components-sha }}',
+        });
         expect(workflow.jobs.build['runs-on']).toBe('ubuntu-24.04');
+        const buildSteps = workflow.jobs.build.steps;
+        const setupIndex = buildSteps.findIndex(
+            (step: {uses?: string}) => step.uses === 'diplodoc-platform/setup-node-action@v1',
+        );
+        const validationIndex = buildSteps.findIndex(
+            (step: {run?: string}) =>
+                step.run === 'node tools/testpack/scripts/mini-toc-candidate.js validate',
+        );
+        const sourceIndex = buildSteps.findIndex(
+            (step: {with?: {repository?: string}}) =>
+                step.with?.repository === 'diplodoc-platform/diplodoc',
+        );
+        expect(buildSteps[setupIndex].with).toEqual({
+            'node-version': "${{ vars.NODE_VERSION || '24' }}",
+            'run-install': 'false',
+            cache: '',
+        });
+        expect(setupIndex).toBeGreaterThan(0);
+        expect(validationIndex).toBeGreaterThan(setupIndex);
+        expect(sourceIndex).toBeGreaterThan(validationIndex);
+
+        // Download only the artifact produced by this isolated source-build job.
         const windows = workflow.jobs.windows;
         expect(windows.needs).toBe('build');
         expect(windows['runs-on']).toBe('windows-latest');
@@ -163,6 +215,8 @@ test.describe('Mini TOC source candidate boundaries', () => {
             'merge-multiple': true,
             path: 'candidate-corpus',
         });
+
+        // Keep strict browser attempts and always-upload evidence without publication.
         const commands = windows.steps.map((step: {run?: string}) => step.run || '').join('\n');
         expect(commands).not.toMatch(/npm run docs|npm publish|update-snapshots/);
         expect(commands).toContain('--repeat-each 50 --workers 1 --retries 0');

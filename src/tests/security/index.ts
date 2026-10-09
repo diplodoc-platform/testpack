@@ -64,6 +64,32 @@ const unpackIdSelectedFixture = (
 };
 
 test.describe('Verification security boundaries', () => {
+    test('verification workflows use the shared Node version variable', () => {
+        for (const name of [
+            'mini-toc-candidate',
+            'mini-toc-diagnostics',
+            'golden-file-comparison',
+            'downstream-check',
+        ]) {
+            const workflow = yaml.load(
+                fs.readFileSync(
+                    path.join(__dirname, `../../../.github/workflows/${name}.yml`),
+                    'utf8',
+                ),
+            );
+            let setupCount = 0;
+            for (const job of Object.values(workflow.jobs) as {
+                steps: {uses?: string; with?: Record<string, unknown>}[];
+            }[])
+                for (const step of job.steps) {
+                    if (!step.uses?.includes('setup-node')) continue;
+                    setupCount++;
+                    expect(step.with?.['node-version']).toBe("${{ vars.NODE_VERSION || '24' }}");
+                }
+            expect(setupCount).toBeGreaterThan(0);
+        }
+    });
+
     test('Windows diagnostic workflow is manual-only and preserves every attempt', () => {
         const workflow = yaml.load(
             fs.readFileSync(

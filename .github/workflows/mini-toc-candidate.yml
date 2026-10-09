@@ -2,15 +2,24 @@ name: Mini TOC source candidate on Windows
 
 on:
   workflow_dispatch:
+    inputs:
+      metapackage-sha:
+        description: 'Reviewed full commit SHA of diplodoc-platform/diplodoc'
+        required: true
+        type: string
+      components-sha:
+        description: 'Reviewed full commit SHA of diplodoc-platform/components'
+        required: true
+        type: string
 
 permissions:
   contents: read
 
-# Explicit, reviewed source pins for the pre-release components pilot.
+# Freeze explicitly supplied source pins for the entire manual run.
 # This workflow never publishes packages or changes repository pointers.
 env:
-  METAPACKAGE_SHA: c19d631426f723c23ff6c84b01a2fbfc6ac4aded
-  COMPONENTS_SHA: aa06fd1fe9d67483835759f57a85f910126d4e19
+  METAPACKAGE_SHA: ${{ inputs.metapackage-sha }}
+  COMPONENTS_SHA: ${{ inputs.components-sha }}
 
 jobs:
   build:
@@ -24,8 +33,20 @@ jobs:
       - name: Checkout diagnostic tools
         uses: actions/checkout@v5
         with:
+          # Current tooling is separate from the pinned metapackage's test fixtures.
           path: tools/testpack
           persist-credentials: false
+
+      - name: Setup Node.js without root install or lockfile cache
+        uses: diplodoc-platform/setup-node-action@v1
+        with:
+          node-version: ${{ vars.NODE_VERSION || '24' }}
+          run-install: 'false'
+          cache: ''
+
+      - name: Validate immutable source inputs before checkout
+        run: node tools/testpack/scripts/mini-toc-candidate.js validate
+
       - name: Checkout pinned metapackage
         uses: actions/checkout@v5
         with:
@@ -41,10 +62,6 @@ jobs:
           ref: ${{ env.COMPONENTS_SHA }}
           path: candidate-components
           persist-credentials: false
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
       - name: Inject exact components commit in isolated checkout
         run: |
           git -C metapackage/packages/components fetch "$GITHUB_WORKSPACE/candidate-components" "$COMPONENTS_SHA"
@@ -98,7 +115,7 @@ jobs:
       - name: Setup Node.js and install dependencies
         uses: diplodoc-platform/setup-node-action@v1
         with:
-          node-version: '24'
+          node-version: ${{ vars.NODE_VERSION || '24' }}
       - name: Download corpus from the exact producer
         uses: actions/download-artifact@v4
         with:
