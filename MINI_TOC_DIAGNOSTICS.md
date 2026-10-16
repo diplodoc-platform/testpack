@@ -1,4 +1,4 @@
-# Mini TOC Windows diagnostics
+# Mini TOC platform diagnostics
 
 This opt-in probe investigates the Windows active-heading flake. It does not
 change client code, assertions, screenshots or normal Quality retry settings.
@@ -9,10 +9,16 @@ on pull requests, pushes, schedules or dependency updates. They are opt-in
 investigation tools, not required automatic PR checks. The normal Quality and
 dependency-verification workflows remain unchanged.
 
-`mini-toc-diagnostics.yml` checks the published CLI. Two isolated Windows jobs run:
+`mini-toc-diagnostics.yml` checks the CLI version pinned in this repository's
+devDependencies and standalone lockfile. Isolated Windows and macOS jobs each run:
 
 - 50 repetitions of each real navigation scenario, with one worker and no retry;
-- the full suite with the normal CI retries, to retain the original workload.
+- the full suite with one worker and no retry.
+
+Each platform/scenario has a separate always-upload artifact containing reports,
+first-attempt Mini TOC JSON and traces. Screenshot updates remain disabled.
+The source-candidate workflow below remains Windows-only with its original retry
+settings; it is separate from this strict published-CLI control.
 
 `MINI_TOC_DIAGNOSTICS=1` installs a recorder before Mini TOC page navigation.
 The recorder forwards the original native observer entries, observer and options
