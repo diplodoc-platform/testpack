@@ -36,6 +36,7 @@ const path = require('path');
 
 const compareArtifacts = require('./compare-artifacts.js');
 const compareSvgDom = require('./compare-svg-dom.js');
+const {exposeWorkspaceInfra} = require('./workspace-infra.js');
 
 const GIT_REPOSITORY_ENV_KEYS = [
     'GIT_ALTERNATE_OBJECT_DIRECTORIES',
@@ -252,15 +253,23 @@ function replaceSubmoduleSha(submoduleDir, sha) {
 
 /**
  * Build a consumer package in the metapackage context.
- * Runs the consumer build against dependencies installed once at the
- * metapackage root. Per-consumer installs would mutate submodules and can hide
- * workspace-resolution failures.
+ * Use the metapackage's Nx graph so workspace dependencies are built first.
+ * Per-consumer installs would mutate dependency resolution and hide failures.
  * @param {string} consumerDir - Path to the consumer package.
+ * @param {string} metapackageRoot - Path to the metapackage root.
  * @returns {object} Build outcome.
  */
-function buildConsumer(consumerDir) {
+function buildConsumer(consumerDir, metapackageRoot) {
     try {
-        execSync('npm run build', {cwd: consumerDir, stdio: 'pipe'});
+        const {name} = JSON.parse(fs.readFileSync(path.join(consumerDir, 'package.json'), 'utf8'));
+        if (typeof name !== 'string' || !/^(?:@[a-z0-9._-]+\/)?[a-z0-9._-]+$/.test(name))
+            throw new Error('Consumer has no valid package name');
+        execFileSync('npm', ['exec', '--', 'nx', 'build', name], {
+            cwd: metapackageRoot,
+            stdio: 'pipe',
+            env: {...process.env, NX_DAEMON: 'false'},
+            shell: process.platform === 'win32',
+        });
         return {success: true, error: null};
     } catch (err) {
         return {success: false, error: err.message || String(err)};
@@ -274,6 +283,7 @@ function buildConsumer(consumerDir) {
  */
 function runConsumerTests(consumerDir) {
     try {
+        exposeWorkspaceInfra(consumerDir);
         execSync('npm test', {cwd: consumerDir, stdio: 'pipe'});
         return {success: true, error: null};
     } catch (err) {
@@ -550,7 +560,7 @@ function runDownstreamCheck(pkg, options) {
 
         let buildResult = {success: true, error: null};
         if (!opts.skipBuild) {
-            buildResult = buildConsumer(consumerDir);
+            buildResult = buildConsumer(consumerDir, opts.metapackageRoot);
         }
 
         let testResult = {success: true, error: null};
