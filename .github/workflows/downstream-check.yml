@@ -90,7 +90,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: diplodoc-platform/diplodoc
-          ref: master
+          ref: e73df56a3e5efcd16186c41b4bc9b71010debd99
           path: metapackage
           submodules: recursive
           fetch-depth: 0
