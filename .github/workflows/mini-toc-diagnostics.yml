@@ -1,4 +1,4 @@
-name: Mini TOC Windows diagnostics
+name: Mini TOC published CLI diagnostics
 
 on:
   workflow_dispatch:
@@ -7,12 +7,13 @@ permissions:
   contents: read
 
 jobs:
-  windows:
-    runs-on: windows-latest
+  platform:
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
+        os: [windows-latest, macos-latest]
         scenario: [navigation, full-suite]
     env:
       MINI_TOC_DIAGNOSTICS: '1'
@@ -31,19 +32,22 @@ jobs:
         with:
           node-version: ${{ vars.NODE_VERSION || '24' }}
 
+      - name: Record installed CLI and rendering packages
+        run: npm ls @diplodoc/cli @diplodoc/client @diplodoc/transform
+
       - name: Repeat real navigation without retries
         if: matrix.scenario == 'navigation'
         run: npm test -- --config playwright.mini-toc.config.ts --grep "Components.*Mini TOC.*Navigation to" --repeat-each 50 --workers 1 --retries 0
 
-      - name: Run full suite with normal CI retries
+      - name: Run full suite without retries
         if: matrix.scenario == 'full-suite'
-        run: npm test -- --config playwright.mini-toc.config.ts
+        run: npm test -- --config playwright.mini-toc.config.ts --workers 1 --retries 0
 
       - name: Preserve every attempt and Mini TOC trace
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mini-toc-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: mini-toc-${{ matrix.os }}-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: .playwright/mini-toc/${{ matrix.scenario }}/
           include-hidden-files: true
           if-no-files-found: error

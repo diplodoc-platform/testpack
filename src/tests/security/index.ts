@@ -90,7 +90,7 @@ test.describe('Verification security boundaries', () => {
         }
     });
 
-    test('Windows diagnostic workflow is manual-only and preserves every attempt', () => {
+    test('platform diagnostics are manual-only, retry-free and preserve every attempt', () => {
         const workflow = yaml.load(
             fs.readFileSync(
                 path.join(__dirname, '../../../.github/workflows/mini-toc-diagnostics.yml'),
@@ -99,11 +99,14 @@ test.describe('Verification security boundaries', () => {
         );
         expect(workflow.on).toEqual({workflow_dispatch: null});
         expect(workflow.permissions).toEqual({contents: 'read'});
-        const job = workflow.jobs.windows;
-        expect(job['runs-on']).toBe('windows-latest');
+        const job = workflow.jobs.platform;
+        expect(job['runs-on']).toBe('${{ matrix.os }}');
         expect(job.strategy).toEqual({
             'fail-fast': false,
-            matrix: {scenario: ['navigation', 'full-suite']},
+            matrix: {
+                os: ['windows-latest', 'macos-latest'],
+                scenario: ['navigation', 'full-suite'],
+            },
         });
         const repeated = job.steps.find(
             (step: {name: string}) => step.name === 'Repeat real navigation without retries',
@@ -112,19 +115,23 @@ test.describe('Verification security boundaries', () => {
             'npm test -- --config playwright.mini-toc.config.ts --grep "Components.*Mini TOC.*Navigation to" --repeat-each 50 --workers 1 --retries 0',
         );
         const full = job.steps.find(
-            (step: {name: string}) => step.name === 'Run full suite with normal CI retries',
+            (step: {name: string}) => step.name === 'Run full suite without retries',
         );
-        expect(full.run).toBe('npm test -- --config playwright.mini-toc.config.ts');
+        expect(full.run).toBe(
+            'npm test -- --config playwright.mini-toc.config.ts --workers 1 --retries 0',
+        );
         const upload = job.steps.find(
             (step: {uses?: string}) => step.uses === 'actions/upload-artifact@v4',
         );
         expect({
             condition: upload.if,
+            name: upload.with.name,
             path: upload.with.path,
             hidden: upload.with['include-hidden-files'],
             missing: upload.with['if-no-files-found'],
         }).toEqual({
             condition: 'always()',
+            name: 'mini-toc-${{ matrix.os }}-${{ matrix.scenario }}-${{ github.run_id }}-${{ github.run_attempt }}',
             path: '.playwright/mini-toc/${{ matrix.scenario }}/',
             hidden: true,
             missing: 'error',
