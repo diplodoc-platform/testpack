@@ -330,7 +330,9 @@ jobs:
       - name: Run changed package tests in metapackage context
         env:
           PACKAGE_NAME: ${{ needs.prepare.outputs.name }}
-        run: npm test --workspace "${PACKAGE_NAME}" --if-present
+        run: |
+          node ../tools/testpack/scripts/workspace-infra.js "$PACKAGE_PATH"
+          npm test --workspace "${PACKAGE_NAME}" --if-present
         working-directory: metapackage
       - name: Build candidate HTML and Markdown corpus
         run: |
@@ -347,11 +349,7 @@ jobs:
         working-directory: metapackage/devops/testpack
       - name: Expose hoisted infra config to Playwright
         if: inputs.profile != 'document-transform'
-        run: |
-          mkdir -p devops/testpack/node_modules/@diplodoc
-          ln -sfn \
-            "$PWD/node_modules/@diplodoc/infra" \
-            devops/testpack/node_modules/@diplodoc/infra
+        run: node ../tools/testpack/scripts/workspace-infra.js devops/testpack
         working-directory: metapackage
       - name: Run candidate browser and screenshot regression
         if: inputs.profile != 'document-transform'

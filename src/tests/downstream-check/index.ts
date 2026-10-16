@@ -7,6 +7,7 @@ import {expect, test} from '@playwright/test';
 /* eslint-disable @typescript-eslint/no-require-imports */
 const downstreamCheck = require('../../../scripts/downstream-check.js');
 const {resolveRepositoryCorpus} = require('../../../scripts/repository-corpus.js');
+const {exposeWorkspaceInfra} = require('../../../scripts/workspace-infra.js');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 const DEEP_VERIFICATION_WORKFLOW = fs.readFileSync(
@@ -86,10 +87,11 @@ test.describe('Downstream Check', () => {
         });
 
         test('should expose hoisted infra config to Playwright', () => {
-            expect(DEEP_VERIFICATION_WORKFLOW).toContain('ln -sfn \\');
-            expect(DEEP_VERIFICATION_WORKFLOW).toContain('"$PWD/node_modules/@diplodoc/infra"');
             expect(DEEP_VERIFICATION_WORKFLOW).toContain(
-                'devops/testpack/node_modules/@diplodoc/infra',
+                'scripts/workspace-infra.js devops/testpack',
+            );
+            expect(DEEP_VERIFICATION_WORKFLOW).toContain(
+                'scripts/workspace-infra.js "$PACKAGE_PATH"',
             );
         });
 
@@ -109,6 +111,73 @@ test.describe('Downstream Check', () => {
             expect(DEEP_VERIFICATION_WORKFLOW).toContain(
                 'artifact-ids: ${{ needs.baseline.outputs.artifact-id }}',
             );
+        });
+    });
+
+    test.describe('workspace infra resolution', () => {
+        test('exposes hoisted config without replacing local installs or dangling links', () => {
+            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-hoisted-infra-'));
+            const consumer = path.join(root, 'packages/components');
+            const hoisted = path.join(root, 'node_modules/@diplodoc/infra');
+            const local = path.join(consumer, 'node_modules/@diplodoc/infra');
+            try {
+                fs.mkdirSync(consumer, {recursive: true});
+                fs.mkdirSync(hoisted, {recursive: true});
+                fs.writeFileSync(
+                    path.join(hoisted, 'package.json'),
+                    JSON.stringify({name: '@diplodoc/infra'}),
+                );
+                fs.writeFileSync(path.join(hoisted, 'tsconfig.json'), '{}');
+                expect(exposeWorkspaceInfra(consumer)).toBe(local);
+                expect(fs.realpathSync(local)).toBe(fs.realpathSync(hoisted));
+                expect(exposeWorkspaceInfra(consumer)).toBe(local);
+
+                fs.unlinkSync(local);
+                fs.mkdirSync(local);
+                fs.writeFileSync(path.join(local, 'tsconfig.json'), '{"local":true}');
+                expect(exposeWorkspaceInfra(consumer)).toBe(local);
+                expect(fs.readFileSync(path.join(local, 'tsconfig.json'), 'utf8')).toBe(
+                    '{"local":true}',
+                );
+
+                fs.unlinkSync(path.join(local, 'tsconfig.json'));
+                expect(() => exposeWorkspaceInfra(consumer)).toThrow('no tsconfig');
+                fs.rmdirSync(local);
+                const target = path.join(root, 'removed');
+                fs.mkdirSync(target);
+                fs.symlinkSync(target, local, 'junction');
+                fs.rmdirSync(target);
+                expect(() => exposeWorkspaceInfra(consumer)).toThrow();
+                expect(fs.lstatSync(local).isSymbolicLink()).toBe(true);
+            } finally {
+                fs.rmSync(root, {recursive: true, force: true});
+            }
+        });
+
+        test('does not fabricate an infra installation when none is resolvable', () => {
+            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-missing-infra-'));
+            try {
+                expect(() => exposeWorkspaceInfra(root)).toThrow();
+                expect(fs.existsSync(path.join(root, 'node_modules'))).toBe(false);
+            } finally {
+                fs.rmSync(root, {recursive: true, force: true});
+            }
+        });
+
+        test('rejects unsafe Nx package targets before invoking the build', () => {
+            const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-nx-target-'));
+            try {
+                fs.writeFileSync(
+                    path.join(root, 'package.json'),
+                    JSON.stringify({name: 'invalid;target'}),
+                );
+                expect(downstreamCheck.buildConsumer(root, root)).toEqual({
+                    success: false,
+                    error: 'Consumer has no valid package name',
+                });
+            } finally {
+                fs.rmSync(root, {recursive: true, force: true});
+            }
         });
     });
 
