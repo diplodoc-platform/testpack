@@ -11,6 +11,7 @@ const artifacts = require('./compare-artifacts');
 const svg = require('./compare-svg-dom');
 const downstream = require('./downstream-check');
 const {compareCorpus} = require('./compare-corpus');
+const {compareResolution} = require('./workspace-lock');
 
 // This module only reads build evidence. It never imports or executes anything
 // from the candidate or reference package directories.
@@ -74,6 +75,18 @@ function validateConsumers(report, repository) {
 
 function compareVerification(repository, baselineDir, candidateDir) {
     if (!downstream.isSupportedPackage(repository)) throw new Error('Unsupported repository');
+    const resolutionReports = [
+        readEvidence(baselineDir, 'base-dependency-resolution.json'),
+        readEvidence(candidateDir, 'candidate-dependency-resolution.json'),
+    ];
+    for (const report of resolutionReports) {
+        if (
+            report.packageName !== downstream.PACKAGE_NAMES[repository] ||
+            report.packagePath !== downstream.PACKAGE_PATHS[repository]
+        )
+            throw new Error('Dependency resolution evidence belongs to another package');
+    }
+    const resolution = compareResolution(...resolutionReports);
     const exports = {};
     for (const scope of ['standalone-', '']) {
         const baseline = readEvidence(baselineDir, `base-${scope}package-targets.json`);
@@ -102,7 +115,7 @@ function compareVerification(repository, baselineDir, candidateDir) {
         !html.hasDifferences &&
         !markdown.hasDifferences &&
         !visual.hasDifferences;
-    return {repository, exports, consumers, html, markdown, visual, passed};
+    return {repository, resolution, exports, consumers, html, markdown, visual, passed};
 }
 
 function main() {
@@ -119,6 +132,7 @@ function main() {
         const report = [
             `# Dependency verification: ${result.passed ? 'PASS' : 'FAIL'}`,
             'Reference and candidate were built on isolated runners; this job only reads evidence.',
+            `## Locked dependency coverage\n\n\`\`\`json\n${JSON.stringify(result.resolution, null, 2)}\n\`\`\``,
             `## Package exports\n\n\`\`\`json\n${JSON.stringify(result.exports, null, 2)}\n\`\`\``,
             `## Consumers\n\n\`\`\`json\n${JSON.stringify(result.consumers, null, 2)}\n\`\`\``,
             '## HTML',
