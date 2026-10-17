@@ -169,8 +169,16 @@ jobs:
         run: |
           npm install --package-lock-only --ignore-scripts
           mkdir -p "$GITHUB_WORKSPACE/artifacts"
-          cp package-lock.json "$GITHUB_WORKSPACE/artifacts/base-metapackage-lock.json"
           npm ci
+          node ../tools/testpack/scripts/workspace-lock.js \
+            --command overlay --package "$REPOSITORY_NAME" --workspace . \
+            --standalone "$GITHUB_WORKSPACE/baseline-package" \
+            --output "$GITHUB_WORKSPACE/artifacts/base-lock-plan.json"
+          cp package-lock.json "$GITHUB_WORKSPACE/artifacts/base-metapackage-lock.json"
+          node ../tools/testpack/scripts/workspace-lock.js \
+            --command verify --workspace . \
+            --plan "$GITHUB_WORKSPACE/artifacts/base-lock-plan.json" \
+            --output "$GITHUB_WORKSPACE/artifacts/base-dependency-resolution.json"
         working-directory: metapackage
       - name: Build base testpack dependency graph
         run: npm run build
@@ -211,6 +219,12 @@ jobs:
             --skip-corpus true \
             --output artifacts/base-downstream/ \
             --report artifacts/base-downstream-report.md
+      - name: Recheck baseline resolutions after builds and consumer tests
+        run: |
+          node tools/testpack/scripts/workspace-lock.js \
+            --command verify --workspace metapackage \
+            --plan artifacts/base-lock-plan.json \
+            --output artifacts/base-dependency-resolution.json
       - name: Upload isolated baseline evidence
         id: evidence
         if: always()
@@ -308,8 +322,16 @@ jobs:
       - name: Resolve candidate metapackage lock and install
         run: |
           npm install --package-lock-only --ignore-scripts
-          cp package-lock.json "$GITHUB_WORKSPACE/artifacts/candidate-metapackage-lock.json"
           npm ci
+          node ../tools/testpack/scripts/workspace-lock.js \
+            --command overlay --package "$REPOSITORY_NAME" --workspace . \
+            --standalone "$GITHUB_WORKSPACE/candidate-package" \
+            --output "$GITHUB_WORKSPACE/artifacts/candidate-lock-plan.json"
+          cp package-lock.json "$GITHUB_WORKSPACE/artifacts/candidate-metapackage-lock.json"
+          node ../tools/testpack/scripts/workspace-lock.js \
+            --command verify --workspace . \
+            --plan "$GITHUB_WORKSPACE/artifacts/candidate-lock-plan.json" \
+            --output "$GITHUB_WORKSPACE/artifacts/candidate-dependency-resolution.json"
         working-directory: metapackage
       - name: Install metapackage Playwright browser when required
         if: inputs.profile != 'document-transform'
@@ -378,6 +400,12 @@ jobs:
             --skip-corpus true \
             --output artifacts/candidate-downstream/ \
             --report artifacts/candidate-downstream-report.md
+      - name: Recheck candidate resolutions after builds and consumer tests
+        run: |
+          node tools/testpack/scripts/workspace-lock.js \
+            --command verify --workspace metapackage \
+            --plan artifacts/candidate-lock-plan.json \
+            --output artifacts/candidate-dependency-resolution.json
       - name: Upload isolated candidate evidence
         id: evidence
         if: always()

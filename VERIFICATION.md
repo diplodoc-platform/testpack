@@ -126,6 +126,43 @@ no execution rights or authenticity guarantee.
 The workflow does not install dependencies independently inside consumer
 directories, so it tests the actual metapackage dependency graph.
 
+### Lock-only dependency updates
+
+Replacing a source submodule does not update the metapackage's npm resolutions.
+After each isolated workspace install, `scripts/workspace-lock.js` overlays a
+package-local dependency tree from that producer's locked standalone installation.
+The baseline uses its standalone baseline lock; the candidate uses its candidate
+lock. Direct and nested resolutions are scoped to the selected package, including
+different versions of the same dependency. Other workspace links and shared
+resolutions are preserved; source manifests are not rewritten. A lockfile edit
+alone is insufficient: npm can deduplicate to a newer compatible hoisted version.
+`scripts/workspace-install.js` copies reachable non-workspace packages and
+their executable shims into a staging directory, then swaps the selected local
+node_modules. The previous directory is retained under the metapackage's own
+node_modules (outside source inputs and artifact uploads); it is never deleted.
+
+After the overlay, and again after builds/tests, the helper follows dependency
+edges using Node's node_modules lookup and reads installed package.json files
+without importing package code. It checks versions against
+the standalone plan and verifies the installed lock's version, URL and integrity.
+The producer artifacts include the seeded metapackage lock, resolution plan and
+`base-dependency-resolution.json` / `candidate-dependency-resolution.json`.
+The trusted comparator requires these reports and lists changed lock paths and
+versions. Missing, inconsistent or wrong-package evidence fails closed before
+corpus differences can be accepted as meaningful.
+
+Only dependency edges reachable without crossing a replaced workspace count as
+covered. A transitive library hoisted from a standalone workspace dependency is
+not necessarily used by that workspace's source checkout. Changed resolutions
+hidden behind workspace links, unreachable records or unavailable optional
+packages fail with an explicit coverage error, not a green identical-corpus
+result. Unsupported lock formats, local/git dependencies and aliases without a
+matching installed identity likewise require a separate supported verification
+path. This is runtime-version evidence, not a malware or package-byte authenticity
+claim; npm integrity and source review remain separate gates. Platform-specific
+optional dependencies absent in the standalone installation remain explicitly
+unavailable; a changed unavailable resolution is not covered on the current runner.
+
 The workflow has four separate hosted jobs: metadata-only `prepare`, isolated
 `baseline` and `candidate` builds, and trusted `comparison`. The last job never
 installs or executes package code; it reads artifacts by IDs emitted by the
