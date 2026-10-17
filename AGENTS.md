@@ -105,6 +105,9 @@ Security invariants for repository tooling:
 - Keep runtime JS/CSS files, numeric chunks and script attributes comparable.
   Normalize only demonstrated build nondeterminism, with both positive and
   negative fixtures. Never accept a coverage gap as "identical artifacts".
+- Preserve package-local locked installs with `scripts/workspace-lock.js` after
+  workspace installs; require installed-resolution evidence in the comparator.
+  Changed dependencies hidden by workspace links must fail closed; see VERIFICATION.md.
 - Corpus outputs must be fresh directories. Do not add recursive deletion of
   caller-supplied paths. Preserve the caller's checkout and user files on failure.
 - Rendering verification must serve the already-built candidate HTML corpus

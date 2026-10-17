@@ -6,6 +6,7 @@ import {expect, test} from '@playwright/test';
 
 import './mini-toc-diagnostics';
 import './mini-toc-candidate';
+import './workspace-lock';
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 // Use the YAML parser provided by the installed infra tooling.
@@ -33,6 +34,17 @@ type ArtifactDownloadInputs = {
 
 const writeEvidenceFixture = (dir: string, role: string, kind: string) => {
     fs.mkdirSync(path.join(dir, `${role}-downstream`), {recursive: true});
+    fs.writeFileSync(
+        path.join(dir, `${role}-dependency-resolution.json`),
+        JSON.stringify({
+            formatVersion: 1,
+            packageName: '@diplodoc/cut-extension',
+            packagePath: 'extensions/cut',
+            sourceDigest: 'a'.repeat(64),
+            entries: [],
+            edges: [],
+        }),
+    );
     fs.writeFileSync(
         path.join(dir, `${role}-downstream/downstream-result.json`),
         JSON.stringify({package: 'cut-extension', consumers: []}),
@@ -403,6 +415,31 @@ test.describe('Verification security boundaries', () => {
             expect(() =>
                 verification.compareVerification('cut-extension', baseline, candidate),
             ).toThrow();
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true});
+        }
+    });
+
+    test('missing or wrong-package dependency resolution evidence cannot pass corpus comparison', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-lock-evidence-'));
+        const baseline = path.join(root, 'baseline');
+        const candidate = path.join(root, 'candidate');
+        try {
+            writeEvidenceFixture(baseline, 'base', 'expected');
+            writeEvidenceFixture(candidate, 'candidate', 'actual');
+            const file = path.join(candidate, 'candidate-dependency-resolution.json');
+            const source = fs.readFileSync(file, 'utf8');
+            fs.unlinkSync(file);
+            expect(() =>
+                verification.compareVerification('cut-extension', baseline, candidate),
+            ).toThrow();
+            fs.writeFileSync(
+                file,
+                source.replace('@diplodoc/cut-extension', '@diplodoc/transform'),
+            );
+            expect(() =>
+                verification.compareVerification('cut-extension', baseline, candidate),
+            ).toThrow('belongs to another package');
         } finally {
             fs.rmSync(root, {recursive: true, force: true});
         }
