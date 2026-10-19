@@ -245,6 +245,55 @@ test.describe('Workspace locked dependency verification', () => {
         }
     });
 
+    test('verifies retained optional children of an unavailable platform parent', () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-optional-child-'));
+        const {workspace, standalone} = fixture();
+        Object.assign(standalone.packages[''].dependencies, {'platform-parent': '1.0.0'});
+        Object.assign(standalone.packages, {
+            'node_modules/platform-parent': {
+                ...locked('platform-parent', '1.0.0'),
+                optional: true,
+                dependencies: {'optional-child': '1.0.0'},
+            },
+            'node_modules/optional-child': {
+                ...locked('optional-child', '1.0.0'),
+                optional: true,
+                dependencies: {'optional-leaf': '1.0.0'},
+            },
+            'node_modules/optional-leaf': {
+                ...locked('optional-leaf', '1.0.0'),
+                optional: true,
+            },
+        });
+        const {lock, plan} = seedLock(workspace, standalone, 'packages/candidate');
+        plan.entries.find((entry: {name: string}) => entry.name === 'platform-parent').mode =
+            'optional-unavailable';
+        try {
+            writeJson(path.join(root, 'package-lock.json'), lock);
+            for (const entry of plan.entries) {
+                if (entry.mode !== 'locked') continue;
+                writeJson(path.join(root, 'packages/candidate', entry.path, 'package.json'), {
+                    name: entry.name,
+                    version: entry.version,
+                });
+            }
+            const report = verifyInstall(plan, root);
+            expect(
+                report.entries.find((entry: {name: string}) => entry.name === 'optional-child'),
+            ).toMatchObject({installedVersion: '1.0.0', mode: 'locked'});
+            const leaf = path.join(
+                root,
+                'packages/candidate/node_modules/optional-leaf/package.json',
+            );
+            writeJson(leaf, {name: 'optional-leaf', version: '1.0.1'});
+            expect(() => verifyInstall(plan, root)).toThrow('differs from standalone lock');
+            fs.unlinkSync(leaf);
+            expect(() => verifyInstall(plan, root)).toThrow();
+        } finally {
+            fs.rmSync(root, {recursive: true, force: true});
+        }
+    });
+
     test('a real offline locked overlay preserves direct, nested and aliased versions after hoisting', () => {
         test.setTimeout(120_000);
         const root = fs.mkdtempSync(path.join(os.tmpdir(), 'testpack-lock-install-'));
