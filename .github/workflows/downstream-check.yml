@@ -1,4 +1,4 @@
-name: Dependency Deep Verification
+name: Components type-fix diagnostic (manual only)
 # Candidate execution is isolated from the reference and from trusted comparison.
 # Package artifacts are data, not scripts to execute in the comparison job.
 'on':
@@ -25,25 +25,6 @@ name: Dependency Deep Verification
           - document-transform
           - document-rendering
           - ecosystem
-  workflow_call:
-    inputs:
-      package:
-        description: Repository name from infra/distribution.yml
-        required: true
-        type: string
-      pr-sha:
-        description: Full candidate commit SHA
-        required: true
-        type: string
-      pr-number:
-        description: PR number for reporting (optional)
-        required: false
-        type: string
-      profile:
-        description: Verification profile selected by dependency risk assessment
-        required: false
-        default: document-transform
-        type: string
 permissions:
   contents: read
 jobs:
@@ -57,6 +38,15 @@ jobs:
       base-sha: ${{ steps.package.outputs.base-sha }}
       metapackage-sha: ${{ steps.package.outputs.metapackage-sha }}
     steps:
+      - name: Require the bounded manual components pilot
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PACKAGE: ${{ inputs.package }}
+          PROFILE: ${{ inputs.profile }}
+        run: |
+          test "$EVENT_NAME" = workflow_dispatch
+          test "$PACKAGE" = components
+          test "$PROFILE" = document-rendering
       - name: Require trusted workflow identity
         env:
           WORKFLOW_REPOSITORY: ${{ job.workflow_repository }}
@@ -90,7 +80,7 @@ jobs:
         uses: actions/checkout@v5
         with:
           repository: diplodoc-platform/diplodoc
-          ref: master
+          ref: 3446348576fe5d5bba8fc26ad80c03f1c7e750d6
           path: metapackage
           submodules: recursive
           fetch-depth: 0
@@ -156,6 +146,14 @@ jobs:
           submodules: recursive
           fetch-depth: 0
           persist-credentials: false
+      - name: Apply the same exact client fix to both sides (diagnostic only)
+        env:
+          CLIENT_SHA: 02658f4fc4130acc230d80551b7faf0cccd938c8
+        run: |
+          git -C metapackage/packages/client fetch --no-tags https://github.com/diplodoc-platform/client.git "$CLIENT_SHA"
+          git -C metapackage/packages/client checkout --detach "$CLIENT_SHA"
+          test "$(git -C metapackage/packages/client rev-parse HEAD)" = "$CLIENT_SHA"
+          echo "Diagnostic client override: $CLIENT_SHA (not released or merged)" >> "$GITHUB_STEP_SUMMARY"
       - name: Build standalone baseline and record export state
         run: |
           npm ci --ignore-scripts
@@ -183,6 +181,10 @@ jobs:
       - name: Build base testpack dependency graph
         run: npm run build
         working-directory: metapackage
+      - name: Prove the baseline components source reaches both consumers
+        env:
+          EXPECTED_SOURCE: ${{ needs.prepare.outputs.base-sha }}
+        run: node tools/testpack/scripts/diagnostic-components-binding.cjs metapackage "$EXPECTED_SOURCE" artifacts/base-source-binding.json
       - name: Install reference Playwright browser when required
         if: inputs.profile != 'document-transform'
         run: npx playwright install --with-deps chromium
@@ -225,6 +227,7 @@ jobs:
             --command verify --workspace metapackage \
             --plan artifacts/base-lock-plan.json \
             --output artifacts/base-dependency-resolution.json
+          node tools/testpack/scripts/diagnostic-components-binding.cjs metapackage "${{ needs.prepare.outputs.base-sha }}" artifacts/base-source-binding.json
       - name: Upload isolated baseline evidence
         id: evidence
         if: always()
@@ -285,6 +288,14 @@ jobs:
           submodules: recursive
           fetch-depth: 0
           persist-credentials: false
+      - name: Apply the same exact client fix to both sides (diagnostic only)
+        env:
+          CLIENT_SHA: 02658f4fc4130acc230d80551b7faf0cccd938c8
+        run: |
+          git -C metapackage/packages/client fetch --no-tags https://github.com/diplodoc-platform/client.git "$CLIENT_SHA"
+          git -C metapackage/packages/client checkout --detach "$CLIENT_SHA"
+          test "$(git -C metapackage/packages/client rev-parse HEAD)" = "$CLIENT_SHA"
+          echo "Diagnostic client override: $CLIENT_SHA (not released or merged)" >> "$GITHUB_STEP_SUMMARY"
       - name: Install candidate from its own lockfile
         run: npm ci --ignore-scripts
         working-directory: candidate-package
@@ -340,6 +351,8 @@ jobs:
       - name: Build candidate testpack dependency graph
         run: npm run build
         working-directory: metapackage
+      - name: Prove the candidate components source reaches both consumers
+        run: node tools/testpack/scripts/diagnostic-components-binding.cjs metapackage "$PR_SHA" artifacts/candidate-source-binding.json
       - name: Record candidate workspace export state
         env:
           PACKAGE_PATH: ${{ needs.prepare.outputs.path }}
@@ -387,7 +400,8 @@ jobs:
             --config "$GITHUB_WORKSPACE/artifacts/candidate-playwright.config.ts" \
             --update-snapshots=none \
             --output "$GITHUB_WORKSPACE/artifacts/playwright-output" \
-            --trace retain-on-failure
+            --trace retain-on-failure \
+            --retries=0
         working-directory: metapackage/devops/testpack
       - name: Record candidate downstream consumer state
         id: candidate-downstream
@@ -406,6 +420,7 @@ jobs:
             --command verify --workspace metapackage \
             --plan artifacts/candidate-lock-plan.json \
             --output artifacts/candidate-dependency-resolution.json
+          node tools/testpack/scripts/diagnostic-components-binding.cjs metapackage "$PR_SHA" artifacts/candidate-source-binding.json
       - name: Upload isolated candidate evidence
         id: evidence
         if: always()
