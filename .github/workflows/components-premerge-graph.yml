@@ -1,0 +1,148 @@
+name: Components premerge graph smoke (diagnostic only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      metapackage-sha:
+        description: Fixed reviewed metapackage SHA
+        required: true
+        type: string
+      components-sha:
+        description: Fixed reviewed components candidate SHA
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      metapackage-sha:
+        required: true
+        type: string
+      components-sha:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  graph:
+    name: ${{ matrix.os }} / ${{ matrix.side }} / complete graph
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+        side: [baseline, candidate]
+    defaults:
+      run:
+        shell: bash
+    env:
+      CI: 'true'
+      NX_DAEMON: 'false'
+      COMPONENTS_SHA: ${{ matrix.side == 'candidate' && inputs.components-sha || '5d3fe97cf3927a0e5454c1e0884c5f5b06f44058' }}
+      CLIENT_SHA: 44d2af7672937591fad040815fc1d76f2835d582
+      METAPACKAGE_SHA: ${{ inputs.metapackage-sha }}
+    steps:
+      - name: Validate the bounded diagnostic before executing package code
+        env:
+          CANDIDATE_SHA: ${{ inputs.components-sha }}
+        run: |
+          test "$METAPACKAGE_SHA" = 3446348576fe5d5bba8fc26ad80c03f1c7e750d6
+          test "$CANDIDATE_SHA" = 76675efbf7b427f40ac0a682bf5b68e07c991a67
+          git config --global core.longpaths true
+      - name: Checkout immutable diagnostic tools
+        uses: actions/checkout@v5
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: tools/testpack
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ vars.NODE_VERSION || '24' }}
+      - name: Checkout selected standalone source
+        uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/components
+          ref: ${{ env.COMPONENTS_SHA }}
+          path: selected-package
+          persist-credentials: false
+      - name: Install and validate the selected standalone package
+        working-directory: selected-package
+        run: |
+          npm ci --ignore-scripts
+          npm run typecheck
+          npm run lint
+          npm test
+          npm run build
+      - name: Checkout frozen complete graph
+        uses: actions/checkout@v5
+        with:
+          repository: diplodoc-platform/diplodoc
+          ref: ${{ env.METAPACKAGE_SHA }}
+          path: metapackage
+          submodules: recursive
+          persist-credentials: false
+      - name: Apply exact reviewed client and components sources
+        run: |
+          git -C metapackage/packages/client fetch --no-tags https://github.com/diplodoc-platform/client.git "$CLIENT_SHA"
+          git -C metapackage/packages/client checkout --detach "$CLIENT_SHA"
+          git -C metapackage/packages/components fetch --no-tags https://github.com/diplodoc-platform/components.git "$COMPONENTS_SHA"
+          git -C metapackage/packages/components checkout --detach "$COMPONENTS_SHA"
+      - name: Install workspace and retain the selected package's own locked dependencies
+        working-directory: metapackage
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          npm ci
+          node ../tools/testpack/scripts/workspace-lock.js --command overlay --package components --workspace . --standalone ../selected-package --output ../artifacts/lock-plan.json
+          node ../tools/testpack/scripts/workspace-lock.js --command verify --workspace . --plan ../artifacts/lock-plan.json --output ../artifacts/resolution-before.json
+      - name: Build complete graph without cached outputs
+        working-directory: metapackage
+        run: npm run build -- --skip-nx-cache
+      - name: Require actual candidate resolution in client and search
+        run: node tools/testpack/scripts/diagnostic-components-binding.cjs metapackage "$COMPONENTS_SHA" artifacts/source-binding.json
+      - name: Test client contract and changed package in workspace context
+        working-directory: metapackage
+        run: |
+          npm test --workspace @diplodoc/client
+          npm test --workspace @diplodoc/components
+      - name: Build HTML and Markdown with the real rebuilt CLI
+        working-directory: metapackage/devops/testpack
+        run: |
+          node ../../packages/cli/build/index.js build -i docs/input -o ../../../artifacts/html/output --output-format html
+          node ../../packages/cli/build/index.js build -i docs/input -o ../../../artifacts/md/output --output-format md
+      - name: Recheck every locked resolution after build and tests
+        run: node tools/testpack/scripts/workspace-lock.js --command verify --workspace metapackage --plan artifacts/lock-plan.json --output artifacts/resolution-after.json
+      - name: Prepare candidate browser on this operating system
+        if: matrix.side == 'candidate'
+        working-directory: metapackage
+        run: |
+          node ../tools/testpack/scripts/workspace-infra.js devops/testpack
+          npx playwright install chromium
+      - name: Run real candidate browser tests without retries or snapshot updates
+        if: matrix.side == 'candidate'
+        working-directory: metapackage/devops/testpack
+        env:
+          PR_SHA: ${{ env.COMPONENTS_SHA }}
+          TESTPACK_ROOT: ${{ github.workspace }}/metapackage/devops/testpack
+          CANDIDATE_CORPUS: ${{ github.workspace }}/artifacts/html/output
+          BROWSER_ARTIFACTS: ${{ github.workspace }}/artifacts
+        run: |
+          node ../../../tools/testpack/scripts/candidate-browser.js
+          npx playwright test --config ../../../artifacts/candidate-playwright.config.ts --update-snapshots=none --retries=0 --trace retain-on-failure
+      - name: Pack the actual rebuilt component and client without publishing
+        working-directory: metapackage
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/packs"
+          npm pack --ignore-scripts --json --pack-destination "$GITHUB_WORKSPACE/artifacts/packs" --workspace @diplodoc/components > "$GITHUB_WORKSPACE/artifacts/components-pack.json"
+          npm pack --ignore-scripts --json --pack-destination "$GITHUB_WORKSPACE/artifacts/packs" --workspace @diplodoc/client > "$GITHUB_WORKSPACE/artifacts/client-pack.json"
+      - name: Preserve exact-source resolution, corpus and packing evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: components-premerge-${{ matrix.os }}-${{ matrix.side }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
