@@ -148,7 +148,7 @@ jobs:
           persist-credentials: false
       - name: Apply the same exact client fix to both sides (diagnostic only)
         env:
-          CLIENT_SHA: 44d2af7672937591fad040815fc1d76f2835d582
+          CLIENT_SHA: 1532c3c0b32968a18817fe63f520e21d528fe156
         run: |
           git -C metapackage/packages/client fetch --no-tags https://github.com/diplodoc-platform/client.git "$CLIENT_SHA"
           git -C metapackage/packages/client checkout --detach "$CLIENT_SHA"
@@ -290,7 +290,7 @@ jobs:
           persist-credentials: false
       - name: Apply the same exact client fix to both sides (diagnostic only)
         env:
-          CLIENT_SHA: 44d2af7672937591fad040815fc1d76f2835d582
+          CLIENT_SHA: 1532c3c0b32968a18817fe63f520e21d528fe156
         run: |
           git -C metapackage/packages/client fetch --no-tags https://github.com/diplodoc-platform/client.git "$CLIENT_SHA"
           git -C metapackage/packages/client checkout --detach "$CLIENT_SHA"
@@ -401,7 +401,7 @@ jobs:
             --update-snapshots=none \
             --output "$GITHUB_WORKSPACE/artifacts/playwright-output" \
             --trace retain-on-failure \
-            --retries=0
+            --retries=0 --max-failures=5
         working-directory: metapackage/devops/testpack
       - name: Record candidate downstream consumer state
         id: candidate-downstream

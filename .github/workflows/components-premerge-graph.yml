@@ -40,7 +40,7 @@ jobs:
       CI: 'true'
       NX_DAEMON: 'false'
       COMPONENTS_SHA: ${{ matrix.side == 'candidate' && inputs.components-sha || '5d3fe97cf3927a0e5454c1e0884c5f5b06f44058' }}
-      CLIENT_SHA: 44d2af7672937591fad040815fc1d76f2835d582
+      CLIENT_SHA: 1532c3c0b32968a18817fe63f520e21d528fe156
       METAPACKAGE_SHA: ${{ inputs.metapackage-sha }}
     steps:
       - name: Validate the bounded diagnostic before executing package code
@@ -130,7 +130,7 @@ jobs:
           BROWSER_ARTIFACTS: ${{ github.workspace }}/artifacts
         run: |
           node ../../../tools/testpack/scripts/candidate-browser.js
-          npx playwright test --config ../../../artifacts/candidate-playwright.config.ts --update-snapshots=none --retries=0 --trace retain-on-failure
+          npx playwright test --config ../../../artifacts/candidate-playwright.config.ts --update-snapshots=none --retries=0 --trace retain-on-failure --max-failures=5
       - name: Pack the actual rebuilt component and client without publishing
         working-directory: metapackage
         run: |

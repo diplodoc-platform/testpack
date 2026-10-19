@@ -3,7 +3,7 @@ const path = require('node:path');
 const {createRequire} = require('node:module');
 const {execFileSync} = require('node:child_process');
 
-const CLIENT_SHA = '44d2af7672937591fad040815fc1d76f2835d582';
+const CLIENT_SHA = '1532c3c0b32968a18817fe63f520e21d528fe156';
 
 function verifyBindings(workspace, expectedSha) {
     if (!/^[a-f0-9]{40}$/.test(expectedSha || '')) throw new Error('Invalid source SHA');
