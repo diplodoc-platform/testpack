@@ -40,7 +40,7 @@ jobs:
       CI: 'true'
       NX_DAEMON: 'false'
       COMPONENTS_SHA: ${{ matrix.side == 'candidate' && inputs.components-sha || '5d3fe97cf3927a0e5454c1e0884c5f5b06f44058' }}
-      CLIENT_SHA: 1532c3c0b32968a18817fe63f520e21d528fe156
+      CLIENT_SHA: 0627a7c382554596dba48450395788f895402cbb
       YFMLINT_SHA: e9ec26df6d42267efe0b119c6e340bb1f4b4fba8
       METAPACKAGE_SHA: ${{ inputs.metapackage-sha }}
     steps:

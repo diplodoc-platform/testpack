@@ -148,7 +148,7 @@ jobs:
           persist-credentials: false
       - name: Apply the same exact client fix to both sides (diagnostic only)
         env:
-          CLIENT_SHA: 1532c3c0b32968a18817fe63f520e21d528fe156
+          CLIENT_SHA: 0627a7c382554596dba48450395788f895402cbb
         run: |
           git -C metapackage/packages/client fetch --no-tags https://github.com/diplodoc-platform/client.git "$CLIENT_SHA"
           git -C metapackage/packages/client checkout --detach "$CLIENT_SHA"
@@ -290,7 +290,7 @@ jobs:
           persist-credentials: false
       - name: Apply the same exact client fix to both sides (diagnostic only)
         env:
-          CLIENT_SHA: 1532c3c0b32968a18817fe63f520e21d528fe156
+          CLIENT_SHA: 0627a7c382554596dba48450395788f895402cbb
         run: |
           git -C metapackage/packages/client fetch --no-tags https://github.com/diplodoc-platform/client.git "$CLIENT_SHA"
           git -C metapackage/packages/client checkout --detach "$CLIENT_SHA"
