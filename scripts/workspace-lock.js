@@ -275,6 +275,18 @@ function verifyInstall(plan, workspaceRoot) {
     if (!directory.startsWith(root + path.sep))
         throw new Error('Selected package escapes the isolated workspace');
     const queue = [{key: '', directory}];
+    // npm can retain a hoisted optional child while omitting its platform-specific
+    // parent (for example a WASM fallback on macOS). Verify the retained package
+    // and its own edges too; never silently omit it from installed evidence.
+    for (const entry of plan.entries) {
+        if (entry.mode !== 'locked' || !entry.optional) continue;
+        const installed = fs.realpathSync(path.join(directory, entry.path));
+        if (!installed.startsWith(root + path.sep))
+            throw new Error('Optional dependency escapes the isolated workspace');
+        const relative = checkInstalledEntry(root, installed, entry, lock);
+        locations.set(entry.path, new Set([relative]));
+        queue.push({key: entry.path, directory: installed});
+    }
     const seen = new Set();
     for (const current of queue) {
         const identity = `${current.key}\0${current.directory}`;
