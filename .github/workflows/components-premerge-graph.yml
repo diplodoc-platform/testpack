@@ -41,6 +41,7 @@ jobs:
       NX_DAEMON: 'false'
       COMPONENTS_SHA: ${{ matrix.side == 'candidate' && inputs.components-sha || '5d3fe97cf3927a0e5454c1e0884c5f5b06f44058' }}
       CLIENT_SHA: 1532c3c0b32968a18817fe63f520e21d528fe156
+      YFMLINT_SHA: e9ec26df6d42267efe0b119c6e340bb1f4b4fba8
       METAPACKAGE_SHA: ${{ inputs.metapackage-sha }}
     steps:
       - name: Validate the bounded diagnostic before executing package code
@@ -88,6 +89,9 @@ jobs:
         run: |
           git -C metapackage/packages/client fetch --no-tags https://github.com/diplodoc-platform/client.git "$CLIENT_SHA"
           git -C metapackage/packages/client checkout --detach "$CLIENT_SHA"
+          git -C metapackage/packages/yfmlint fetch --no-tags https://github.com/diplodoc-platform/yfmlint.git "$YFMLINT_SHA"
+          git -C metapackage/packages/yfmlint checkout --detach "$YFMLINT_SHA"
+          test "$(git -C metapackage/packages/yfmlint rev-parse HEAD)" = "$YFMLINT_SHA"
           git -C metapackage/packages/components fetch --no-tags https://github.com/diplodoc-platform/components.git "$COMPONENTS_SHA"
           git -C metapackage/packages/components checkout --detach "$COMPONENTS_SHA"
       - name: Install workspace and retain the selected package's own locked dependencies

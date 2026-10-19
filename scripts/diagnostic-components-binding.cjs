@@ -14,6 +14,12 @@ function verifyBindings(workspace, expectedSha) {
     if (head(selected) !== expectedSha) throw new Error('Unexpected components source');
     if (head(path.join(root, 'packages/client')) !== CLIENT_SHA)
         throw new Error('Unexpected diagnostic client source');
+    const yfmlintSha = head(path.join(root, 'packages/yfmlint'));
+    if (
+        process.env.YFMLINT_SHA &&
+        (!/^[a-f0-9]{40}$/.test(process.env.YFMLINT_SHA) || yfmlintSha !== process.env.YFMLINT_SHA)
+    )
+        throw new Error('Unexpected diagnostic yfmlint source');
     const consumers = ['packages/client', 'extensions/search'].map((consumer) => {
         const requireFrom = createRequire(path.join(root, consumer, 'package.json'));
         const entry = fs.realpathSync(requireFrom.resolve('@diplodoc/components'));
@@ -21,7 +27,13 @@ function verifyBindings(workspace, expectedSha) {
             throw new Error(`Consumer ${consumer} is using a registry fallback: ${entry}`);
         return {consumer, entry: path.relative(root, entry)};
     });
-    return {diagnosticOnly: true, clientSha: CLIENT_SHA, componentsSha: expectedSha, consumers};
+    return {
+        diagnosticOnly: true,
+        clientSha: CLIENT_SHA,
+        componentsSha: expectedSha,
+        yfmlintSha,
+        consumers,
+    };
 }
 
 if (require.main === module) {
