@@ -55,7 +55,7 @@
     "express": "^4.21.2",
     "glob": "^10.4.5",
     "sanitize-html": "2.12.1",
-    "typescript": "6.0.3"
+    "typescript": "7.0.2"
   },
   "peerDependencies": {
     "@diplodoc/cli": "^5.53.0"
