@@ -12,3 +12,10 @@
 /external
 /docs
 /_assets
+
+.idea
+.vscode
+.history
+.env
+.DS_Store
+node_modules
