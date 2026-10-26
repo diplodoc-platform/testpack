@@ -32,11 +32,6 @@ module.exports = {
         },
         {
             files: ['scripts/**/*.{js,jsx,ts,tsx}'],
-            parserOptions: {
-                project: null,
-                ecmaVersion: 'latest',
-                sourceType: 'script',
-            },
             env: {
                 node: true,
             },
