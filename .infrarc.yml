@@ -1,0 +1,3 @@
+exclude:
+  - path: .eslintrc.js
+    reason: 'Repository CommonJS scripts are linted outside the TypeScript project.'
