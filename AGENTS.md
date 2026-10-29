@@ -132,6 +132,10 @@ Security invariants for repository tooling:
   The opt-in Windows probe also retains native observer events and first-attempt
   traces; see MINI_TOC_DIAGNOSTICS.md. Keep the recorder behavior-neutral and
   always upload failed-attempt evidence even when a retry passes.
+- Golden differences may pass only with the explicit comparison digest in a
+  current-head human CODEOWNER Approve review. Preserve base/head/diff binding,
+  native team-review evidence and raw differences; never turn accepted changes
+  into an "identical" result or let approval bypass build/screenshot failures.
 - Maintain focused adversarial tests under `src/tests/security`, imported only by
   `tests/repository.spec.ts`, not the published cross-package suites. See
   `VERIFICATION.md` for trust boundaries and remaining limitations.

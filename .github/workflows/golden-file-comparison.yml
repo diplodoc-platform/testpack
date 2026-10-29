@@ -172,9 +172,18 @@ jobs:
     if: always() && needs.scope.outputs.run-comparison == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
     env:
       BASELINE_RESULT: ${{ needs.baseline.result }}
       CANDIDATE_RESULT: ${{ needs.candidate.result }}
+      GOLDEN_PR: ${{ github.event.pull_request.number }}
+      GOLDEN_HEAD: ${{ github.event.pull_request.head.sha }}
+      GOLDEN_BASE: ${{ github.event.pull_request.base.sha }}
+      GOLDEN_BASELINE: baseline/expected
+      GOLDEN_CANDIDATE: candidate/actual
+      GOLDEN_REPORTS: reports
     steps:
       - name: Require complete isolated builds
         run: '[[ "$BASELINE_RESULT" == success && "$CANDIDATE_RESULT" == success ]] || exit 1'
@@ -202,9 +211,11 @@ jobs:
           path: candidate
           merge-multiple: true
       - name: Compare HTML, Markdown and SVG without executing package code
-        run: >-
-          node tools/testpack/scripts/compare-corpus.js --baseline baseline/expected --candidate
-          candidate/actual --output reports
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const {runGoldenReview} = require('./tools/testpack/scripts/golden-review.js');
+            await runGoldenReview({github, context, core});
       - name: Upload trusted corpus differences
         if: always()
         uses: actions/upload-artifact@v4
