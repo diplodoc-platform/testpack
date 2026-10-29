@@ -62,12 +62,47 @@ node scripts/compare-svg-dom.js \
   --report artifacts/svg-diff.md
 ```
 
-For a dependency-only pull request, any difference exits non-zero and therefore
-blocks the workflow. Feature pull requests that also change fixtures, tests,
-documentation, source, or workflows skip this dependency gate and remain subject
-to the normal CI, CODEOWNER, and branch/ruleset policy. The comparison workflow
-itself has read-only GitHub permissions and does not label or comment on pull
-requests.
+For a dependency-only pull request, differences block the workflow until a
+human CODEOWNER explicitly accepts that exact comparison. Feature pull requests
+that also change fixtures, tests, documentation, source, or workflows skip this
+dependency gate and remain subject to normal CI, CODEOWNER and branch/ruleset
+policy. The comparison workflow has only read permissions and never labels,
+comments on, approves or merges a pull request.
+
+### Accepting an expected difference
+
+1. Inspect `html-diff.md`, `markdown-diff.md`, `svg-diff.md` and the build evidence
+   uploaded by the failed Golden File Comparison job.
+2. Copy the `/golden-approve sha256:...` line from `golden-review.md` in that
+   report or job summary. Submit an **Approve** PR review containing that line.
+   The review must target the current PR head and come from a human CODEOWNER,
+   directly or on behalf of a CODEOWNER team. An ordinary comment, label, generic
+   approval or machine-user approval does not accept the difference.
+3. Use **Re-run failed jobs** on that golden run. With successful baseline,
+   candidate and screenshot jobs, GitHub repeats only the data-only comparator
+   against the retained producer artifacts. No additional dependency-update PR
+   or changed baseline files are needed.
+
+The digest binds the repository, PR number, base SHA, head SHA and complete
+comparison result. A different head, base or diff needs a matching new approval;
+old reviews, dismissals, change requests and incomplete API evidence cannot pass
+the gate. Native PR review requirements must also be satisfied. Team ownership
+is checked using GitHub's review `onBehalfOf` evidence, not an unverified claim in
+review text. The currently supported owner policy is the single global rule in
+the trusted base checkout's `.github/CODEOWNERS`; a more complex policy fails
+closed until support is deliberately added. Known machine users are excluded.
+
+Accepted differences remain in `corpus-result.json` with `passed: false`.
+`golden-review.json` separately records the exact request and approving review;
+the job reports accepted differences instead of claiming identical output. Build,
+screenshot, incomplete-corpus and other CI failures cannot be accepted through
+this mechanism. The standalone comparison CLI and reusable downstream comparator
+retain their strict exit behavior.
+
+The gate helper comes from the immutable PR base. After first merging this
+feature, update an existing dependency PR branch onto that master revision and
+run golden again before reviewing its new report. Older workflow runs keep the
+old tools and cannot acquire this mechanism merely by being rerun.
 
 ## Browser screenshots
 

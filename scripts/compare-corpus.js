@@ -45,25 +45,38 @@ function compareCorpus(baseline, candidate) {
     };
 }
 
+/**
+ * Persist the raw comparison unchanged, including differences later accepted by review.
+ * @param {Object} result Complete corpus comparison.
+ * @param {string} output Existing report directory.
+ * @returns {void}
+ */
+function writeCorpusReports(result, output) {
+    fs.writeFileSync(
+        path.join(output, 'corpus-result.json'),
+        JSON.stringify(result, null, 2) + '\n',
+    );
+    for (const [name, report] of [
+        ['html', artifacts.renderReport(result.html)],
+        ['markdown', artifacts.renderReport(result.markdown)],
+        ['svg', svg.renderReport(result.visual)],
+    ]) {
+        fs.writeFileSync(path.join(output, `${name}-diff.md`), report);
+    }
+}
+
 function main() {
     const args = artifacts.parseArgs();
-    if (!args.baseline || !args.candidate || !args.output)
+    if (!args.baseline || !args.candidate || !args.output) {
         throw new Error('Missing corpus comparison arguments');
+    }
     fs.mkdirSync(args.output, {recursive: true});
     try {
         const result = compareCorpus(args.baseline, args.candidate);
-        fs.writeFileSync(
-            path.join(args.output, 'corpus-result.json'),
-            JSON.stringify(result, null, 2) + '\n',
-        );
-        for (const [name, report] of [
-            ['html', artifacts.renderReport(result.html)],
-            ['markdown', artifacts.renderReport(result.markdown)],
-            ['svg', svg.renderReport(result.visual)],
-        ]) {
-            fs.writeFileSync(path.join(args.output, `${name}-diff.md`), report);
+        writeCorpusReports(result, args.output);
+        if (!result.passed) {
+            process.exitCode = 1;
         }
-        if (!result.passed) process.exitCode = 1;
     } catch (error) {
         fs.writeFileSync(
             path.join(args.output, 'corpus-error.md'),
@@ -73,5 +86,7 @@ function main() {
     }
 }
 
-if (require.main === module) main();
-module.exports = {compareCorpus};
+if (require.main === module) {
+    main();
+}
+module.exports = {compareCorpus, writeCorpusReports};
