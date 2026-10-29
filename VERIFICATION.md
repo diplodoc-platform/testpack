@@ -92,6 +92,13 @@ review text. The currently supported owner policy is the single global rule in
 the trusted base checkout's `.github/CODEOWNERS`; a more complex policy fails
 closed until support is deliberately added. Known machine users are excluded.
 
+A read-only Actions token can hide private team attribution even when a user
+can see it. Such a review fails closed. Approval requires an explicitly listed
+human CODEOWNER whose identity is visible, or a separately reviewed resolver with
+sufficient organization access. A team-only owner policy with hidden attribution
+cannot enable this gate by itself; never substitute generic write access for
+CODEOWNER evidence.
+
 Accepted differences remain in `corpus-result.json` with `passed: false`.
 `golden-review.json` separately records the exact request and approving review;
 the job reports accepted differences instead of claiming identical output. Build,
