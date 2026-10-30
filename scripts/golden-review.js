@@ -71,7 +71,7 @@ function globalCodeowners(source) {
     return owners;
 }
 
-function approvedReview(reviews, request, owners) {
+function exactHumanReviews(reviews, request) {
     if (
         reviews.some((review) => !Number.isSafeInteger(review?.databaseId) || review.databaseId < 1)
     ) {
@@ -83,7 +83,7 @@ function approvedReview(reviews, request, owners) {
             latest.set(review.author?.login?.toLowerCase(), review);
         }
     }
-    return [...latest.values()].find((review) => {
+    return [...latest.values()].filter((review) => {
         const login = review.author?.login?.toLowerCase();
         if (
             !login ||
@@ -97,9 +97,14 @@ function approvedReview(reviews, request, owners) {
         ) {
             return false;
         }
-        if (review.onBehalfOf?.pageInfo?.hasNextPage !== false) {
-            return false;
-        }
+        return true;
+    });
+}
+
+function approvedReview(reviews, request, owners) {
+    return exactHumanReviews(reviews, request).find((review) => {
+        if (review.onBehalfOf?.pageInfo?.hasNextPage !== false) return false;
+        const login = review.author.login.toLowerCase();
         const identities = [
             `@${login}`,
             ...(review.onBehalfOf.nodes || []).map((team) =>
@@ -183,6 +188,8 @@ async function runGoldenReview({github, context, core}, env = process.env) {
             'Inspect the HTML, Markdown and SVG reports from this run. To accept this exact diff,',
             'submit an **Approve** review as a human CODEOWNER with this line in the review body:',
             `\n\`\`\`text\n${request.command}\n\`\`\``,
+            'For a private CODEOWNER team, run **Confirm Golden Review** from the default branch in Actions,',
+            `with PR **${request.pr}** and digest **${request.digest}**. It verifies team membership without running PR code.`,
             'Then use **Re-run failed jobs** on this run. Only the comparison of retained artifacts is repeated.',
             'A changed head, base or comparison needs new approval. Build and screenshot failures cannot be approved here.',
             '',
@@ -192,7 +199,11 @@ async function runGoldenReview({github, context, core}, env = process.env) {
     const owners = globalCodeowners(
         fs.readFileSync(path.join(__dirname, '../.github/CODEOWNERS'), 'utf8'),
     );
-    const approval = approvedReview(await currentReviews(github, request), request, owners);
+    const reviews = await currentReviews(github, request);
+    const {confirmedTeamReview} = require('./golden-review-approval');
+    const approval =
+        approvedReview(reviews, request, owners) ||
+        (await confirmedTeamReview(github, request, reviews));
     if (!approval) {
         core.setFailed(
             'Golden differences require an exact-diff approval from a human CODEOWNER; see golden-review.md',
@@ -214,4 +225,11 @@ async function runGoldenReview({github, context, core}, env = process.env) {
     core.notice(`Golden differences accepted by ${approval.author.login} for ${request.head}`);
 }
 
-module.exports = {reviewRequest, globalCodeowners, approvedReview, currentReviews, runGoldenReview};
+module.exports = {
+    reviewRequest,
+    globalCodeowners,
+    exactHumanReviews,
+    approvedReview,
+    currentReviews,
+    runGoldenReview,
+};

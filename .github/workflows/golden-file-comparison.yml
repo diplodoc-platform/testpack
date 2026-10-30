@@ -175,6 +175,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
+      checks: read
     env:
       BASELINE_RESULT: ${{ needs.baseline.result }}
       CANDIDATE_RESULT: ${{ needs.candidate.result }}

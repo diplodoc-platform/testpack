@@ -1,0 +1,45 @@
+name: Confirm Golden Review
+'on':
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number with an exact-diff CODEOWNER Approve review
+        required: true
+        type: string
+      digest:
+        description: The 64-character digest from golden-review.md (without sha256 prefix)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  confirm:
+    name: Confirm private CODEOWNER membership
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted default-branch handler
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Create narrowly scoped approval token
+        id: app
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.INFRA_APP_ID }}
+          private-key: ${{ secrets.INFRA_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-pull-requests: read
+          permission-members: read
+          permission-checks: write
+      - name: Verify human review and private team membership
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.app.outputs.token }}
+          script: |
+            const {publishGoldenApproval} = require('./scripts/golden-review-approval.js');
+            await publishGoldenApproval({github, context, core});

@@ -134,8 +134,10 @@ Security invariants for repository tooling:
   always upload failed-attempt evidence even when a retry passes.
 - Golden differences may pass only with the explicit comparison digest in a
   current-head human CODEOWNER Approve review. Preserve base/head/diff binding,
-  native team-review evidence and raw differences; never turn accepted changes
+  native team evidence or the scoped App's exact review confirmation, and raw differences; never turn accepted changes
   into an "identical" result or let approval bypass build/screenshot failures.
+  Keep App credentials only in the default-branch manual approval handler;
+  never execute PR code or download PR artifacts there. See VERIFICATION.md.
 - Maintain focused adversarial tests under `src/tests/security`, imported only by
   `tests/repository.spec.ts`, not the published cross-package suites. See
   `VERIFICATION.md` for trust boundaries and remaining limitations.

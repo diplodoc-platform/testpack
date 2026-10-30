@@ -78,7 +78,13 @@ comments on, approves or merges a pull request.
    The review must target the current PR head and come from a human CODEOWNER,
    directly or on behalf of a CODEOWNER team. An ordinary comment, label, generic
    approval or machine-user approval does not accept the difference.
-3. Use **Re-run failed jobs** on that golden run. With successful baseline,
+3. For a private CODEOWNER team, open **Actions → Confirm Golden Review → Run
+   workflow**. Select `master` (the default branch), enter the PR number and the
+   64-character digest from the report, without the `sha256:` prefix. The handler
+   verifies the review and active membership in the trusted CODEOWNER team. An
+   existing `diplodoc-app` installation writes a `Golden difference approval`
+   check; this confirms ownership but does not replace the failed Golden gate.
+4. Use **Re-run failed jobs** on that golden run. With successful baseline,
    candidate and screenshot jobs, GitHub repeats only the data-only comparator
    against the retained producer artifacts. No additional dependency-update PR
    or changed baseline files are needed.
@@ -87,17 +93,28 @@ The digest binds the repository, PR number, base SHA, head SHA and complete
 comparison result. A different head, base or diff needs a matching new approval;
 old reviews, dismissals, change requests and incomplete API evidence cannot pass
 the gate. Native PR review requirements must also be satisfied. Team ownership
-is checked using GitHub's review `onBehalfOf` evidence, not an unverified claim in
-review text. The currently supported owner policy is the single global rule in
+is checked using GitHub's native review evidence or an authenticated App
+confirmation of active team membership, never a claim in review text. The
+currently supported owner policy is the single global rule in
 the trusted base checkout's `.github/CODEOWNERS`; a more complex policy fails
 closed until support is deliberately added. Known machine users are excluded.
 
-A read-only Actions token can hide private team attribution even when a user
-can see it. Such a review fails closed. Approval requires an explicitly listed
-human CODEOWNER whose identity is visible, or a separately reviewed resolver with
-sufficient organization access. A team-only owner policy with hidden attribution
-cannot enable this gate by itself; never substitute generic write access for
-CODEOWNER evidence.
+A read-only Actions token hides private team attribution. The separate manual
+`golden-review-approval.yml` handler runs only from the default branch, checks out
+that trusted workflow SHA, and reads PR/review metadata and CODEOWNERS at the
+exact PR base. It never downloads artifacts, installs dependencies or executes
+PR code. Existing `INFRA_APP_ID` / `INFRA_APP_PRIVATE_KEY` organization secrets
+are used only in this job; its installation token is restricted to this
+repository with contents/PR/members read and checks write. It cannot push, merge,
+edit reviews or rerun Actions. Individual CODEOWNERS entries are not required.
+
+The comparator remains read-only and accepts a confirmation only from the pinned
+`diplodoc-app` App identity (ID `2126995`), bound to repository, PR, base, head,
+digest, reviewer and review ID. It rechecks the current review and native review
+decision, so later dismissal, editing away the command, or a changed comparison
+invalidates confirmation. Team membership is verified when confirmation is
+issued. Missing permissions, missing proof and API failures remain blocking;
+checks from GitHub Actions or another App cannot impersonate this confirmation.
 
 Accepted differences remain in `corpus-result.json` with `passed: false`.
 `golden-review.json` separately records the exact request and approving review;

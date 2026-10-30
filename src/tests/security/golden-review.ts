@@ -18,6 +18,13 @@ const {
     runGoldenReview,
 } = require('../../../scripts/golden-review');
 const {compareCorpus} = require('../../../scripts/compare-corpus');
+const {
+    APPROVAL_APP_ID,
+    APPROVAL_CHECK,
+    proofIdentity,
+    confirmedTeamReview,
+    publishGoldenApproval,
+} = require('../../../scripts/golden-review-approval');
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 const binding = {
@@ -51,6 +58,90 @@ const snapshot = (nodes = [review()]) => ({
         },
     },
 });
+
+function approvalFixture() {
+    const current = review();
+    current.onBehalfOf.nodes = [];
+    const state = {
+        reviews: [current],
+        membership: 'active',
+        membershipError: 0,
+        policy: '* @diplodoc-platform/team @diplodoc-bot',
+        head: binding.head,
+        published: [] as Record<string, unknown>[],
+        membershipLookups: [] as Record<string, unknown>[],
+    };
+    const context = {
+        repo: {owner: 'diplodoc-platform', repo: 'testpack'},
+        eventName: 'workflow_dispatch',
+        ref: 'refs/heads/master',
+        payload: {
+            repository: {default_branch: 'master'},
+            inputs: {pr: '49', digest: request.digest},
+        },
+    };
+    const github = {
+        graphql: async () => {
+            const data = snapshot(state.reviews);
+            data.repository.pullRequest.headRefOid = state.head;
+            return data;
+        },
+        rest: {
+            pulls: {
+                get: async () => ({
+                    data: {
+                        state: 'open',
+                        number: 49,
+                        head: {sha: state.head},
+                        base: {sha: binding.base, repo: {full_name: binding.repository}},
+                    },
+                }),
+            },
+            repos: {
+                getContent: async () => ({
+                    data: {
+                        type: 'file',
+                        encoding: 'base64',
+                        size: state.policy.length,
+                        content: Buffer.from(state.policy).toString('base64'),
+                    },
+                }),
+            },
+            teams: {
+                getMembershipForUserInOrg: async (input: Record<string, unknown>) => {
+                    state.membershipLookups.push(input);
+                    if (state.membershipError)
+                        throw Object.assign(new Error('denied'), {status: state.membershipError});
+                    return {data: {state: state.membership}};
+                },
+            },
+            checks: {create: async (input: Record<string, unknown>) => state.published.push(input)},
+        },
+    };
+    return {state, github, context, core: {notice: () => {}}};
+}
+
+function proofCheck() {
+    return {
+        app: {id: APPROVAL_APP_ID},
+        name: APPROVAL_CHECK,
+        head_sha: request.head,
+        status: 'completed',
+        conclusion: 'success',
+        external_id: proofIdentity(request, review()),
+    };
+}
+
+function proofClient(checks: ReturnType<typeof proofCheck>[]) {
+    return {
+        rest: {checks: {listForRef: () => {}}},
+        paginate: {
+            iterator: async function* () {
+                yield {data: checks};
+            },
+        },
+    };
+}
 
 function corpus(root: string, side: string) {
     const directory = path.join(root, side);
@@ -202,7 +293,8 @@ test.describe('Golden review', () => {
             const core = {notice: () => {}, setFailed: (message: string) => failures.push(message)};
             const context = {repo: {owner: 'diplodoc-platform', repo: 'testpack'}};
             let reviews = snapshot([]);
-            const github = {graphql: async () => reviews};
+            const proofs: ReturnType<typeof proofCheck>[] = [];
+            const github = {...proofClient(proofs), graphql: async () => reviews};
             await runGoldenReview({github, context, core}, env);
             expect(failures).toHaveLength(1);
             expect(fs.readFileSync(path.join(output, 'golden-review.md'), 'utf8')).toContain(
@@ -221,6 +313,17 @@ test.describe('Golden review', () => {
             expect(
                 JSON.parse(fs.readFileSync(path.join(output, 'corpus-result.json'), 'utf8')).passed,
             ).toBe(false);
+            owner.onBehalfOf.nodes = [];
+            await runGoldenReview({github, context, core}, env);
+            expect(failures).toHaveLength(1);
+            failures.length = 0;
+            proofs.push({...proofCheck(), external_id: proofIdentity(exact, owner)});
+            await runGoldenReview({github, context, core}, env);
+            expect(failures).toEqual([]);
+            expect(
+                JSON.parse(fs.readFileSync(path.join(output, 'golden-review.json'), 'utf8'))
+                    .accepted,
+            ).toBe(true);
             fs.writeFileSync(path.join(candidate, 'html/output/runtime.js'), 'anotherChange();');
             await runGoldenReview({github, context, core}, env);
             expect(failures).toHaveLength(1);
@@ -271,7 +374,11 @@ test.describe('Golden review', () => {
             ),
         );
         const job = workflow.jobs['golden-file-comparison'];
-        expect(job.permissions).toEqual({contents: 'read', 'pull-requests': 'read'});
+        expect(job.permissions).toEqual({
+            contents: 'read',
+            'pull-requests': 'read',
+            checks: 'read',
+        });
         expect(job.steps[0].run).toContain('$BASELINE_RESULT');
         expect(job.steps[0].run).toContain('$CANDIDATE_RESULT');
         const compare = job.steps.find((step: {name: string}) =>
@@ -283,5 +390,182 @@ test.describe('Golden review', () => {
             "require('./tools/testpack/scripts/golden-review.js')",
         );
         expect(workflow.jobs.candidate.steps.at(-1).if).toContain('screenshots.outcome');
+    });
+
+    test('private-team handler resolves active membership without relying on hidden review attribution', async () => {
+        const fixture = approvalFixture();
+        await publishGoldenApproval(fixture);
+        expect(fixture.state.membershipLookups).toEqual([
+            {
+                org: 'diplodoc-platform',
+                team_slug: 'team',
+                username: 'maintainer',
+            },
+        ]);
+        expect(fixture.state.published).toHaveLength(1);
+        expect(fixture.state.published[0]).toMatchObject({
+            name: APPROVAL_CHECK,
+            head_sha: binding.head,
+            conclusion: 'success',
+            external_id: proofIdentity(request, review()),
+        });
+        const hidden = {...review(), onBehalfOf: {nodes: [], pageInfo: {hasNextPage: false}}};
+        expect(approvedReview([hidden], request, owners)).toBeUndefined();
+        expect(await confirmedTeamReview(proofClient([proofCheck()]), request, [hidden])).toEqual(
+            hidden,
+        );
+    });
+
+    test('inactive/non-owner membership and denied organization access cannot publish approval', async () => {
+        for (const status of [0, 404, 403, 500]) {
+            const fixture = approvalFixture();
+            fixture.state.membership = 'pending';
+            fixture.state.membershipError = status;
+            await expect(publishGoldenApproval(fixture)).rejects.toThrow();
+            expect(fixture.state.published).toEqual([]);
+        }
+        const crossOrg = approvalFixture();
+        crossOrg.state.policy = '* @other/team';
+        await expect(publishGoldenApproval(crossOrg)).rejects.toThrow('Cross-organization');
+        expect(crossOrg.state.published).toEqual([]);
+    });
+
+    test('manual handler rejects non-default branches, malformed inputs and non-human or stale approvals', async () => {
+        for (const change of [
+            (fixture: ReturnType<typeof approvalFixture>) => {
+                fixture.context.ref = 'refs/heads/candidate';
+            },
+            (fixture: ReturnType<typeof approvalFixture>) => {
+                fixture.context.eventName = 'pull_request';
+            },
+            (fixture: ReturnType<typeof approvalFixture>) => {
+                fixture.context.payload.inputs.pr = '49; malicious';
+            },
+            (fixture: ReturnType<typeof approvalFixture>) => {
+                fixture.context.payload.inputs.digest = 'not-a-digest';
+            },
+            (fixture: ReturnType<typeof approvalFixture>) => {
+                fixture.state.reviews[0].author.__typename = 'Bot';
+            },
+            (fixture: ReturnType<typeof approvalFixture>) => {
+                fixture.state.reviews[0].author.login = 'diplodoc-bot';
+            },
+            (fixture: ReturnType<typeof approvalFixture>) => {
+                fixture.state.reviews[0].commit.oid = 'c'.repeat(40);
+            },
+            (fixture: ReturnType<typeof approvalFixture>) => {
+                fixture.state.reviews[0].body = 'Looks fine';
+            },
+        ]) {
+            const fixture = approvalFixture();
+            change(fixture);
+            await expect(publishGoldenApproval(fixture)).rejects.toThrow();
+            expect(fixture.state.published).toEqual([]);
+        }
+    });
+
+    test('handler rechecks edits, dismissals and moved head before publishing', async () => {
+        for (const change of [
+            (fixture: ReturnType<typeof approvalFixture>) => {
+                fixture.state.reviews[0].body = 'edited';
+            },
+            (fixture: ReturnType<typeof approvalFixture>) => {
+                fixture.state.reviews[0].state = 'DISMISSED';
+            },
+            (fixture: ReturnType<typeof approvalFixture>) => {
+                fixture.state.head = 'c'.repeat(40);
+            },
+        ]) {
+            const fixture = approvalFixture();
+            const lookup = fixture.github.rest.teams.getMembershipForUserInOrg;
+            fixture.github.rest.teams.getMembershipForUserInOrg = async (input) => {
+                const result = await lookup(input);
+                change(fixture);
+                return result;
+            };
+            await expect(publishGoldenApproval(fixture)).rejects.toThrow();
+            expect(fixture.state.published).toEqual([]);
+        }
+    });
+
+    test('proof must come from the installed App and match every binding plus a still-valid review', async () => {
+        for (const bad of [
+            {...proofCheck(), app: {id: 15368}},
+            {...proofCheck(), name: 'Other check'},
+            {...proofCheck(), head_sha: 'c'.repeat(40)},
+            {...proofCheck(), status: 'in_progress'},
+            {...proofCheck(), conclusion: 'failure'},
+            ...['pr', 'base', 'head', 'digest', 'reviewId', 'reviewer', 'repository'].map(
+                (field) => ({
+                    ...proofCheck(),
+                    external_id: JSON.stringify({
+                        ...JSON.parse(proofIdentity(request, review())),
+                        [field]: 'changed',
+                    }),
+                }),
+            ),
+        ])
+            expect(
+                await confirmedTeamReview(proofClient([bad]), request, [review()]),
+            ).toBeUndefined();
+
+        const client = proofClient([proofCheck()]);
+        for (const changed of [
+            {...review(), state: 'DISMISSED'},
+            {...review(), body: 'removed command'},
+            {...review(), commit: {oid: 'c'.repeat(40)}},
+            {...review(), databaseId: 11},
+        ])
+            expect(await confirmedTeamReview(client, request, [changed])).toBeUndefined();
+        await expect(
+            confirmedTeamReview(
+                {
+                    ...client,
+                    paginate: {
+                        iterator: () => {
+                            throw new Error('denied');
+                        },
+                    },
+                },
+                request,
+                [review()],
+            ),
+        ).rejects.toThrow('denied');
+    });
+
+    test('privileged workflow is manual/default-branch only with repo-scoped token and no PR/artifact execution', () => {
+        const workflow = yaml.load(
+            fs.readFileSync(
+                path.join(__dirname, '../../../.github/workflows/golden-review-approval.yml'),
+                'utf8',
+            ),
+        );
+        expect(Object.keys(workflow.on)).toEqual(['workflow_dispatch']);
+        expect(workflow.permissions).toEqual({contents: 'read'});
+        const job = workflow.jobs.confirm;
+        expect(job.if).toContain('github.event.repository.default_branch');
+        const checkout = job.steps.find((step: {uses?: string}) =>
+            step.uses?.startsWith('actions/checkout@'),
+        );
+        expect(checkout.with).toEqual({ref: '${{ github.sha }}', 'persist-credentials': false});
+        const app = job.steps.find((step: {id?: string}) => step.id === 'app');
+        expect(app.with.repositories).toBe('${{ github.event.repository.name }}');
+        expect(
+            Object.fromEntries(
+                Object.entries(app.with).filter(([name]) => name.startsWith('permission-')),
+            ),
+        ).toEqual({
+            'permission-contents': 'read',
+            'permission-pull-requests': 'read',
+            'permission-members': 'read',
+            'permission-checks': 'write',
+        });
+        expect(job.steps.some((step: {run?: string}) => step.run)).toBe(false);
+        expect(JSON.stringify(job)).not.toMatch(/download-artifact|pull_request_target|npm ci/);
+        const golden = fs.readFileSync(
+            path.join(__dirname, '../../../.github/workflows/golden-file-comparison.yml'),
+            'utf8',
+        );
+        expect(golden).not.toMatch(/secrets\.|create-github-app-token/);
     });
 });
