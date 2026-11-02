@@ -1,5 +1,7 @@
 'use strict';
 
+const {createHash} = require('node:crypto');
+
 const {exactHumanReviews, globalCodeowners, currentReviews} = require('./golden-review');
 
 // Only this installed App can attest private team membership. Actions checks
@@ -8,7 +10,7 @@ const APPROVAL_APP_ID = 2126995;
 const APPROVAL_CHECK = 'Golden difference approval';
 
 function proofIdentity(request, review) {
-    return JSON.stringify({
+    const binding = JSON.stringify({
         version: 1,
         repository: request.repository,
         pr: request.pr,
@@ -18,6 +20,10 @@ function proofIdentity(request, review) {
         reviewId: review.databaseId,
         reviewer: review.author.login.toLowerCase(),
     });
+
+    // GitHub silently truncates check external_id to 255 characters. Hash the
+    // complete binding rather than dropping fields or accepting a prefix.
+    return `golden-review:v1:${createHash('sha256').update(binding).digest('hex')}`;
 }
 
 /**
@@ -136,12 +142,13 @@ async function publishGoldenApproval({github, context, core}) {
         ) {
             throw new Error('Golden review changed during owner verification');
         }
-        await github.rest.checks.create({
+        const identity = proofIdentity(request, review);
+        const {data: check} = await github.rest.checks.create({
             owner,
             repo,
             name: APPROVAL_CHECK,
             head_sha: request.head,
-            external_id: proofIdentity(request, review),
+            external_id: identity,
             status: 'completed',
             conclusion: 'success',
             details_url: review.url,
@@ -150,6 +157,9 @@ async function publishGoldenApproval({github, context, core}) {
                 summary: `Review: ${review.url}\n\nDigest: ${request.digest}\n\nRe-run failed Golden File Comparison jobs. This confirmation does not bypass build or screenshot checks.`,
             },
         });
+        if (check.app?.id !== APPROVAL_APP_ID || check.external_id !== identity) {
+            throw new Error('GitHub did not preserve the stored golden approval identity');
+        }
         core.notice(`Confirmed CODEOWNER ${review.author.login}; re-run failed Golden jobs`);
         return;
     }

@@ -115,7 +115,17 @@ function approvalFixture() {
                     return {data: {state: state.membership}};
                 },
             },
-            checks: {create: async (input: Record<string, unknown>) => state.published.push(input)},
+            checks: {
+                create: async (input: Record<string, unknown>) => {
+                    const stored = {
+                        ...input,
+                        app: {id: APPROVAL_APP_ID},
+                        external_id: String(input.external_id).slice(0, 255),
+                    };
+                    state.published.push(stored);
+                    return {data: stored};
+                },
+            },
         },
     };
     return {state, github, context, core: {notice: () => {}}};
@@ -430,6 +440,61 @@ test.describe('Golden review', () => {
         expect(crossOrg.state.published).toEqual([]);
     });
 
+    test('a real-size review identity survives the Checks API 255-character limit', async () => {
+        const fixture = approvalFixture();
+        const current = fixture.state.reviews[0];
+        current.databaseId = 5712729550;
+        current.author.login = 'goldserg';
+        const legacy = JSON.stringify({
+            version: 1,
+            repository: request.repository,
+            pr: request.pr,
+            base: request.base,
+            head: request.head,
+            digest: request.digest,
+            reviewId: current.databaseId,
+            reviewer: current.author.login,
+        });
+        expect(legacy).toHaveLength(283);
+        const identity = proofIdentity(request, current);
+        expect(identity).toMatch(/^golden-review:v1:[a-f0-9]{64}$/);
+        expect(identity.length).toBeLessThanOrEqual(255);
+
+        await publishGoldenApproval(fixture);
+        const stored = fixture.state.published[0];
+        expect(stored.external_id).toBe(identity);
+        expect(
+            await confirmedTeamReview(proofClient([{...proofCheck(), ...stored}]), request, [
+                current,
+            ]),
+        ).toEqual(current);
+        // Old truncated JSON cannot authorize a new gate, even on the same SHA.
+        expect(
+            await confirmedTeamReview(
+                proofClient([{...proofCheck(), external_id: legacy.slice(0, 255)}]),
+                request,
+                [current],
+            ),
+        ).toBeUndefined();
+    });
+
+    test('publisher fails if GitHub changes the stored identity or unexpected App publishes it', async () => {
+        for (const field of ['external_id', 'app']) {
+            const fixture = approvalFixture();
+            const create = fixture.github.rest.checks.create;
+            fixture.github.rest.checks.create = async (input) => {
+                const result = await create(input);
+                if (field === 'external_id')
+                    result.data.external_id = result.data.external_id.slice(0, 20);
+                else result.data.app.id = 15368;
+                return result;
+            };
+            await expect(publishGoldenApproval(fixture)).rejects.toThrow(
+                'stored golden approval identity',
+            );
+        }
+    });
+
     test('manual handler rejects non-default branches, malformed inputs and non-human or stale approvals', async () => {
         for (const change of [
             (fixture: ReturnType<typeof approvalFixture>) => {
@@ -495,15 +560,16 @@ test.describe('Golden review', () => {
             {...proofCheck(), head_sha: 'c'.repeat(40)},
             {...proofCheck(), status: 'in_progress'},
             {...proofCheck(), conclusion: 'failure'},
-            ...['pr', 'base', 'head', 'digest', 'reviewId', 'reviewer', 'repository'].map(
-                (field) => ({
-                    ...proofCheck(),
-                    external_id: JSON.stringify({
-                        ...JSON.parse(proofIdentity(request, review())),
-                        [field]: 'changed',
-                    }),
-                }),
-            ),
+            ...['pr', 'base', 'head', 'digest', 'repository'].map((field) => ({
+                ...proofCheck(),
+                external_id: proofIdentity({...request, [field]: 'changed'}, review()),
+            })),
+            {...proofCheck(), external_id: proofIdentity(request, {...review(), databaseId: 11})},
+            {
+                ...proofCheck(),
+                external_id: proofIdentity(request, {...review(), author: {login: 'other'}}),
+            },
+            {...proofCheck(), external_id: proofCheck().external_id.replace(':v1:', ':v2:')},
         ])
             expect(
                 await confirmedTeamReview(proofClient([bad]), request, [review()]),
