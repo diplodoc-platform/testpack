@@ -116,6 +116,12 @@ invalidates confirmation. Team membership is verified when confirmation is
 issued. Missing permissions, missing proof and API failures remain blocking;
 checks from GitHub Actions or another App cannot impersonate this confirmation.
 
+Check `external_id` contains a versioned SHA-256 of the complete approval binding,
+not the full JSON: GitHub truncates that field to 255 characters. The handler
+checks the returned App identity and stored value before reporting confirmation.
+Old truncated confirmations cannot be reused; after updating the trusted PR base,
+review the new golden report and issue a fresh confirmation for its exact digest.
+
 Accepted differences remain in `corpus-result.json` with `passed: false`.
 `golden-review.json` separately records the exact request and approving review;
 the job reports accepted differences instead of claiming identical output. Build,
